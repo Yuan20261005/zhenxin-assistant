@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="臻心特助">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6f6a">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>臻心特助</title>
+<style>
+:root{
+  --bg:#f6f3ee; --card:#ffffff; --ink:#2a2a28; --muted:#7a766f; --line:#e6e0d6;
+  --brand:#2f6f6a; --brand-soft:#e3efed; --warn:#b5651d; --warn-soft:#fbeedd;
+  --danger:#b23b3b; --danger-soft:#f8e3e3; --ok:#3f7d3a; --ok-soft:#e4f1e1;
+  --info:#3d5f8f; --info-soft:#e4ebf5;
+  --zs:#2f6f6a; --bz:#8a5a9e; --yt:#3d6fa8;
+  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1b1c1b; --card:#262826; --ink:#ecebe7; --muted:#a29e96; --line:#3a3c39;
+    --brand:#6fb3ac; --brand-soft:#23393a; --warn:#e0a060; --warn-soft:#3d3020;
+    --danger:#e07a7a; --danger-soft:#402626; --ok:#8fc58a; --ok-soft:#263a25;
+    --info:#8fb0e0; --info-soft:#243046;
+    --zs:#6fb3ac; --bz:#c39ad4; --yt:#86aee0; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size:17px;line-height:1.5;-webkit-text-size-adjust:100%}
+a{color:var(--brand);text-decoration:none}
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 12px) 20px 10px;display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line)}
+header.top h1{margin:0;font-size:22px;letter-spacing:.05em}
+header.top .d{color:var(--muted);font-size:15px}
+main{max-width:980px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+nav.tabs button .ic{font-size:22px;line-height:1}
+nav.tabs button.on{color:var(--brand);font-weight:600}
+h2{font-size:19px;margin:22px 0 10px;display:flex;align-items:center;gap:8px}
+h2 .count{font-size:14px;font-weight:500;color:var(--muted)}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line);padding:14px 16px;margin-bottom:10px}
+.muted{color:var(--muted)} .small{font-size:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.btn{font:inherit;font-size:16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;cursor:pointer;min-height:42px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.ghost{background:transparent}
+.btn.sm{font-size:14px;padding:5px 10px;min-height:34px}
+.chip{display:inline-block;font-size:13px;padding:2px 9px;border-radius:999px;background:var(--brand-soft);color:var(--brand);white-space:nowrap;vertical-align:middle}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.danger{background:var(--danger-soft);color:var(--danger)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.info{background:var(--info-soft);color:var(--info)}
+.chip.gray{background:var(--line);color:var(--muted)}
+.clinic{font-size:12px;font-weight:700;padding:1px 7px;border-radius:6px;color:#fff;vertical-align:middle}
+.clinic.ZS{background:var(--zs)} .clinic.BZ{background:var(--bz)} .clinic.YT{background:var(--yt)}
+.item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow)}
+.item .imain{flex:1;min-width:0;cursor:pointer}
+.item .iname{font-weight:600}
+.item .istep{font-size:15px}
+.item .idate{font-size:14px;color:var(--muted)}
+.item .key{color:var(--warn);font-weight:700}
+.call{font-size:22px;padding:6px 10px;border-radius:10px;background:var(--brand-soft)}
+.empty{color:var(--muted);font-size:15px;padding:6px 2px 10px}
+.banner{background:var(--warn-soft);color:var(--ink);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+textarea{min-height:84px;resize:vertical}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+label.ck{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+label.ck input{width:22px;height:22px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select{width:auto;flex:1;min-width:140px}
+.timeline{list-style:none;margin:10px 0 0;padding:0}
+.timeline li{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;border-top:1px dashed var(--line);cursor:pointer;border-radius:8px}
+.timeline li:hover{background:var(--brand-soft)}
+.timeline .dot{width:22px;flex:none;text-align:center}
+.timeline .lbl{flex:1}
+.timeline li.done .lbl{color:var(--muted)}
+.timeline li.skip .lbl{color:var(--muted);text-decoration:line-through}
+.timeline li.cur{background:var(--warn-soft)}
+.log{border-left:3px solid var(--brand);padding:4px 0 4px 12px;margin:10px 0}
+.log .meta{font-size:14px;color:var(--muted)}
+.log .react{color:var(--info)}
+.hint{font-size:14px;color:var(--muted);background:var(--brand-soft);border-radius:10px;padding:10px 12px;margin:8px 0 14px}
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,94vw);max-height:90vh;background:var(--card);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.mform{display:flex;flex-direction:column;max-height:90vh}
+.mform h3{margin:0;padding:16px 18px 8px;font-size:19px}
+.mbody{padding:6px 18px;overflow:auto}
+.mfoot{display:flex;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line)}
+table.proto{width:100%;border-collapse:collapse;font-size:15px}
+table.proto td,table.proto th{padding:4px;border-bottom:1px solid var(--line);text-align:left}
+table.proto input{padding:6px 8px}
+table.proto input[type=number]{width:80px}
+details.pd{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px}
+details.pd summary{cursor:pointer;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:6px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;cursor:pointer}
+.stat b{display:block;font-size:26px}
+.stat span{font-size:14px;color:var(--muted)}
+.inline-link{background:none;border:0;padding:0;font:inherit;color:var(--brand);cursor:pointer}
+</style>
+</head>
+<body>
+<header class="top"><h1>臻心特助</h1><span class="d" id="hdrDate"></span><span class="sp"></span></header>
+<main id="view"></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="today"><span class="ic">☀️</span>今天</button>
+  <button data-tab="patients"><span class="ic">👥</span>病人</button>
+  <button data-tab="fill"><span class="ic">📞</span>空檔遞補</button>
+  <button data-tab="logs"><span class="ic">📝</span>每日紀錄</button>
+  <button data-tab="settings"><span class="ic">⚙️</span>設定</button>
+</nav>
+<dialog id="modal"></dialog>
+
+<script>
+/* ===================== 基本設定 ===================== */
+const DB_KEY = 'zhenxin-assistant-v1';
+const CLINICS = { ZS:'永春臻心', BZ:'暖暖微風', YT:'汐止雲天' };
+const WD = ['日','一','二','三','四','五','六'];
+
+function P(label, offset, opt){ return Object.assign({label, offset}, opt||{}); }
+function defaultProtocols(){
+  const tail = () => [P('試戴',14), P('裝戴假牙',7,{key:true}), P('裝戴後回診',30), P('年度追蹤',365,{repeat:365})];
+  return {
+    implant_std:{name:'一般植牙（延遲植入）',cat:'植牙',steps:[
+      P('植體植入',0), P('拆線',10), P('二階段／ISQ 檢查',60,{upperExtra:28}), P('印模',14,{key:true}), ...tail()]},
+    implant_imm:{name:'即拔即種',cat:'植牙',steps:[
+      P('拔牙＋植體植入',0), P('拆線',10), P('ISQ／癒合檢查',80,{upperExtra:28}), P('印模',7,{key:true}), ...tail()]},
+    implant_gbr:{name:'植牙＋GBR',cat:'植牙',steps:[
+      P('植體植入＋GBR',0), P('拆線',14), P('二階段／ISQ 檢查',150), P('印模',21,{key:true}), ...tail()]},
+    sinus_lat:{name:'Sinus lift（lateral window）＋植牙',cat:'植牙',steps:[
+      P('Lateral sinus lift＋植體植入',0), P('拆線',14), P('二階段／ISQ 檢查',180), P('印模',21,{key:true}), ...tail()]},
+    sinus_crest:{name:'Sinus lift（crestal）＋植牙',cat:'植牙',steps:[
+      P('Crestal sinus lift＋植體植入',0), P('拆線',10), P('ISQ／癒合檢查',120), P('印模',14,{key:true}), ...tail()]},
+    ridge:{name:'拔牙＋Ridge preservation → 植牙',cat:'植牙',steps:[
+      P('拔牙＋ridge preservation',0), P('拆線',10), P('植體植入',120,{key:true}), P('植牙後拆線',10),
+      P('二階段／ISQ 檢查',60,{upperExtra:28}), P('印模',14,{key:true}), ...tail()]},
+    perio:{name:'牙周治療',cat:'牙周',steps:[
+      P('牙周檢查／charting',0), P('SRP（第一次）',7), P('SRP（第二次）',7), P('Re-evaluation',42,{key:true}),
+      P('牙周手術（視需要）',14,{optional:true}), P('術後拆線',10,{optional:true}), P('術後再評估',80,{optional:true}),
+      P('SPT 回診',90,{repeat:90})]},
+    crown:{name:'牙冠／牙橋',cat:'固定假牙',steps:[
+      P('修形＋印模＋臨時假牙',0,{key:true}), P('試戴',10), P('黏著',7,{key:true}), P('黏著後回診',14)]},
+    crown_rct:{name:'根管治療後牙冠',cat:'固定假牙',steps:[
+      P('根管治療完成',0), P('Post & core',7), P('修形＋印模＋臨時假牙',7,{key:true}), P('試戴',10), P('黏著',7,{key:true}), P('黏著後回診',14)]},
+  };
+}
+
+/* ===================== 資料存取 ===================== */
+let S;
+function load(){
+  try{ S = JSON.parse(localStorage.getItem(DB_KEY)); }catch(e){ S = null; }
+  if(!S) S = { patients:[], plans:[], logs:[], protocols:defaultProtocols(), meta:{lastBackup:null} };
+  S.meta = S.meta || {};
+}
+function save(){
+  try{ localStorage.setItem(DB_KEY, JSON.stringify(S)); }
+  catch(e){ alert('儲存失敗：' + e.message + '\n請盡快到「設定」匯出備份。'); }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pById = id => S.patients.find(p => p.id === id);
+const planById = id => S.plans.find(p => p.id === id);
+
+/* ===================== 日期工具 ===================== */
+function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function parse(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+const today = () => ymd(new Date());
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); };
+const diff = (a, b) => Math.round((parse(b) - parse(a)) / 86400000); // b - a
+function fmt(s){
+  if(!s) return '';
+  const d = parse(s), y = d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + '/' : '';
+  return `${y}${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`;
+}
+function rel(s){
+  const n = diff(today(), s);
+  if(n === 0) return '今天'; if(n === 1) return '明天'; if(n === -1) return '昨天';
+  return n > 0 ? `${n} 天後` : `${-n} 天前`;
+}
+
+/* ===================== 療程計算 ===================== */
+// 每一步「最早可以做的日期」= 上一步實際完成日（沒完成就用約診日，再沒有就用推算日）+ 間隔天數
+function computeSteps(plan){
+  let base = plan.start;
+  return plan.steps.map((s, i) => {
+    let earliest = i === 0 ? plan.start : addDays(base, (s.offset||0) + (plan.jaw === '上顎' ? (s.upperExtra||0) : 0));
+    if(s.manual) earliest = s.manual;
+    const r = Object.assign({}, s, { idx:i, earliest });
+    if(!s.skipped) base = s.done || s.appt || earliest;
+    return r;
+  });
+}
+function nextStep(plan){ return computeSteps(plan).find(s => !s.done && !s.skipped) || null; }
+function stepStatus(s){
+  const t = today();
+  if(!s) return {cls:'ok', text:'療程完成'};
+  if(s.done) return {cls:'ok', text:'完成 ' + fmt(s.done)};
+  if(s.skipped) return {cls:'gray', text:'已略過'};
+  if(s.appt){
+    if(s.appt < t) return {cls:'danger', text:`約診日已過（${fmt(s.appt)}），還沒標記完成`};
+    const early = s.appt < s.earliest ? '　⚠️ 早於建議日 ' + fmt(s.earliest) : '';
+    return {cls:'info', text:`已約 ${fmt(s.appt)}・${rel(s.appt)}${early}`};
+  }
+  if(s.earliest <= t){
+    const n = diff(s.earliest, t);
+    return {cls:'warn', text: n === 0 ? '今天起可以做了，還沒約' : `已可做 ${n} 天，還沒約`};
+  }
+  return {cls:'gray', text:`${fmt(s.earliest)} 起可做（${rel(s.earliest)}）`};
+}
+function applyRepeat(plan){
+  const last = plan.steps[plan.steps.length - 1];
+  if(last && last.done && last.repeat) plan.steps.push({label:last.label, offset:last.repeat, repeat:last.repeat});
+}
+function activeItems(){
+  const out = [];
+  for(const plan of S.plans){
+    if(plan.archived) continue;
+    const p = pById(plan.patientId); if(!p) continue;
+    const steps = computeSteps(plan);
+    out.push({p, plan, steps, next: steps.find(s => !s.done && !s.skipped) || null});
+  }
+  return out;
+}
+
+/* ===================== 共用 UI 元件 ===================== */
+const clinicBadge = c => c ? `<span class="clinic ${esc(c)}">${esc(c)}</span>` : '';
+function itemHTML(p, plan, s, extra){
+  const st = extra?.status || stepStatus(s);
+  return `<div class="item">
+    <div class="imain" onclick="editStep('${plan.id}',${s.idx})">
+      <div class="iname"><a href="#patient/${p.id}" onclick="event.stopPropagation()">${esc(p.name)}</a>
+        <span class="muted small">${esc(p.chartNo)}</span> ${clinicBadge(plan.clinic)} ${p.flexible ? '<span class="chip ok">可臨時提早</span>' : ''}</div>
+      <div class="istep"><span class="${s.key ? 'key' : ''}">${esc(s.label)}</span>
+        <span class="muted">・${esc(plan.protoName)}${plan.site ? '・' + esc(plan.site) : ''}${plan.jaw ? '（' + esc(plan.jaw) + '）' : ''}</span></div>
+      <div class="idate"><span class="chip ${st.cls}">${esc(st.text)}</span>${extra?.note ? ' ' + extra.note : ''}</div>
+    </div>
+    ${p.phone ? `<a class="call" href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}" title="${esc(p.phone)}">📞</a>` : ''}
+  </div>`;
+}
+const section = (title, arr, emptyText, id) =>
+  `<h2 ${id ? `id="${id}"` : ''}>${title} <span class="count">${arr.length}</span></h2>` + (arr.length ? arr.join('') : `<div class="empty">${emptyText}</div>`);
+
+function openModal({title, body, onSave, saveText, danger, onOpen}){
+  const m = document.getElementById('modal');
+  m.innerHTML = `<form class="mform"><h3>${title}</h3><div class="mbody">${body}</div>
+    <div class="mfoot">${danger ? `<button type="button" class="btn danger" data-act="danger">${danger.text}</button>` : ''}
+    <span class="sp"></span><button type="button" class="btn ghost" data-act="cancel">取消</button>
+    <button type="submit" class="btn primary">${saveText || '儲存'}</button></div></form>`;
+  const f = m.querySelector('form');
+  f.onsubmit = e => {
+    e.preventDefault();
+    const fd = {}; for(const el of f.elements){ if(!el.name) continue; fd[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim(); }
+    if(onSave(fd, f) !== false){ m.close(); save(); render(); }
+  };
+  f.querySelector('[data-act=cancel]').onclick = () => m.close();
+  if(danger) f.querySelector('[data-act=danger]').onclick = () => { if(danger.fn() !== false){ m.close(); save(); render(); } };
+  m.showModal();
+  if(onOpen) onOpen(f);
+}
+const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
+const clinicSelect = (name, val) => `<select name="${name}">${Object.entries(CLINICS).map(([k,v]) => opt(k, `${k} ${v}`, k === val)).join('')}</select>`;
+
+/* ===================== 頁面：今天 ===================== */
+function renderToday(){
+  const t = today(), items = activeItems();
+  const todayAppts = [], ready = [], overdueAppt = [], soon = [];
+  for(const it of items){
+    for(const s of it.steps) if(s.appt === t && !s.done && !s.skipped) todayAppts.push(itemHTML(it.p, it.plan, s));
+    const n = it.next; if(!n) continue;
+    if(n.appt){ if(n.appt < t) overdueAppt.push([n.appt, itemHTML(it.p, it.plan, n)]); }
+    else if(n.earliest <= t) ready.push([n.earliest, itemHTML(it.p, it.plan, n)]);
+    else if(diff(t, n.earliest) <= 14) soon.push([n.earliest, itemHTML(it.p, it.plan, n)]);
+  }
+  const sorted = a => a.sort((x, y) => x[0] < y[0] ? -1 : 1).map(x => x[1]);
+  const todayLogs = S.logs.filter(l => l.date === t);
+  let banner = '';
+  const lb = S.meta.lastBackup;
+  if(S.patients.some(p => !p.demo) && (!lb || diff(lb, t) > 14))
+    banner = `<div class="banner">💾 ${lb ? `上次備份是 ${fmt(lb)}，已經超過兩週` : '你還沒有備份過'}。資料只存在這台 iPad，建議定期匯出備份。<span class="sp"></span><button class="btn sm" onclick="exportData()">立即備份</button></div>`;
+  return banner + `
+  <div class="stats">
+    <div class="stat" onclick="jump('s-appt')"><b>${todayAppts.length}</b><span>今日約診</span></div>
+    <div class="stat" onclick="jump('s-ready')"><b style="color:var(--warn)">${ready.length}</b><span>可以約了、還沒約</span></div>
+    <div class="stat" onclick="jump('s-over')"><b style="color:var(--danger)">${overdueAppt.length}</b><span>約診已過未標記</span></div>
+    <div class="stat" onclick="location.hash='#logs'"><b>${todayLogs.length}</b><span>今天的紀錄</span></div>
+  </div>
+  <div class="row" style="margin-top:8px"><button class="btn primary" onclick="addLog()">＋ 寫今天的紀錄</button><button class="btn" onclick="editPatient()">＋ 新增病人</button></div>
+  ${section('🗓️ 今日約診', todayAppts, '今天沒有登記的約診。（在病人的療程步驟裡填「已約日期」就會出現在這裡）', 's-appt')}
+  ${section('🔔 可以約下一步了，但還沒約', sorted(ready), '目前沒有。', 's-ready')}
+  ${section('⚠️ 約診日已過，還沒標記完成', sorted(overdueAppt), '沒有，很好。', 's-over')}
+  ${section('⏳ 未來 14 天內會到期', sorted(soon), '未來兩週沒有新到期的步驟。')}
+  ${S.patients.length ? '' : `<div class="hint">還沒有任何病人。可以按「新增病人」開始，或到「設定」載入示範資料先看看長怎樣。</div>`}`;
+}
+function jump(id){ document.getElementById(id)?.scrollIntoView({behavior:'smooth'}); }
+
+/* ===================== 頁面：病人清單 ===================== */
+let pq = '', pclinic = '';
+function renderPatients(){
+  const t = today(), items = activeItems();
+  const rank = s => !s ? 9 : s.appt ? (s.appt < t ? 0 : 3) : (s.earliest <= t ? 1 : 4);
+  let rows = S.patients.map(p => {
+    const its = items.filter(i => i.p.id === p.id);
+    const best = its.map(i => i.next).filter(Boolean).sort((a, b) => rank(a) - rank(b))[0];
+    return {p, its, r: its.length ? rank(best) : 10};
+  });
+  const q = pq.toLowerCase();
+  rows = rows.filter(({p}) => (!pclinic || p.clinic === pclinic || S.plans.some(pl => pl.patientId === p.id && pl.clinic === pclinic && !pl.archived))
+    && (!q || (p.name + p.chartNo + (p.phone||'') + (p.memo||'')).toLowerCase().includes(q)));
+  rows.sort((a, b) => a.r - b.r || a.p.name.localeCompare(b.p.name, 'zh-Hant'));
+  const list = rows.map(({p, its}) => `<div class="item"><div class="imain" onclick="location.hash='#patient/${p.id}'">
+      <div class="iname">${esc(p.name)} <span class="muted small">${esc(p.chartNo)}</span> ${clinicBadge(p.clinic)} ${p.flexible ? '<span class="chip ok">可臨時提早</span>' : ''}</div>
+      ${its.length ? its.map(i => `<div class="small">${esc(i.plan.protoName)}${i.plan.site ? '・' + esc(i.plan.site) : ''}：${i.next ? `<b>${esc(i.next.label)}</b> <span class="chip ${stepStatus(i.next).cls}">${esc(stepStatus(i.next).text)}</span>` : '<span class="chip ok">療程完成</span>'}</div>`).join('') : '<div class="small muted">沒有進行中的療程</div>'}
+    </div>${p.phone ? `<a class="call" href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">📞</a>` : ''}</div>`);
+  return `<div class="toolbar"><input type="search" placeholder="搜尋姓名、病歷號、電話、備註…" value="${esc(pq)}" oninput="pq=this.value;rerenderList()">
+    <select onchange="pclinic=this.value;rerenderList()">${opt('', '全部診所', !pclinic)}${Object.entries(CLINICS).map(([k,v]) => opt(k, k + ' ' + v, pclinic === k)).join('')}</select>
+    <button class="btn primary" onclick="editPatient()">＋ 新增病人</button></div>
+    <div id="plist">${list.join('') || '<div class="empty">沒有符合的病人。</div>'}</div>`;
+}
+function rerenderList(){ const tmp = document.createElement('div'); tmp.innerHTML = renderPatients(); document.getElementById('plist').replaceWith(tmp.querySelector('#plist')); }
+
+/* ===================== 頁面：單一病人 ===================== */
+function renderPatient(id){
+  const p = pById(id); if(!p) return '<div class="empty">找不到這位病人。</div>';
+  const plans = S.plans.filter(pl => pl.patientId === id);
+  const planCard = pl => {
+    const steps = computeSteps(pl), nx = steps.find(s => !s.done && !s.skipped);
+    return `<div class="card"><div class="row"><b>${esc(pl.protoName)}</b>${pl.site ? `<span class="chip">${esc(pl.site)}</span>` : ''}${pl.jaw ? `<span class="chip gray">${esc(pl.jaw)}</span>` : ''}${clinicBadge(pl.clinic)}
+      ${pl.archived ? '<span class="chip gray">已結案</span>' : ''}<span class="sp"></span><button class="btn sm" onclick="editPlan('${pl.id}')">編輯</button></div>
+      ${pl.note ? `<div class="small muted" style="margin-top:4px">${esc(pl.note)}</div>` : ''}
+      <ul class="timeline">${steps.map(s => {
+        const st = stepStatus(s), cls = s.done ? 'done' : s.skipped ? 'skip' : (nx && s.idx === nx.idx ? 'cur' : '');
+        const dot = s.done ? '✅' : s.skipped ? '➖' : (nx && s.idx === nx.idx ? '👉' : '⚪️');
+        return `<li class="${cls}" onclick="editStep('${pl.id}',${s.idx})"><span class="dot">${dot}</span>
+          <span class="lbl"><span class="${s.key ? 'key' : ''}">${esc(s.label)}</span>${s.optional ? ' <span class="small muted">（可略過）</span>' : ''}
+          ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ''}</span>
+          <span class="chip ${st.cls}">${esc(st.text)}</span></li>`;
+      }).join('')}</ul></div>`;
+  };
+  const logs = S.logs.filter(l => l.patientId === id).sort((a, b) => b.date.localeCompare(a.date) || (b.ts||0) - (a.ts||0));
+  return `<div class="row" style="margin-bottom:6px"><a href="#patients">← 病人清單</a></div>
+    <div class="card"><div class="row"><span style="font-size:22px;font-weight:700">${esc(p.name)}</span><span class="muted">${esc(p.chartNo)}</span>${clinicBadge(p.clinic)}
+      ${p.flexible ? '<span class="chip ok">可臨時提早</span>' : ''}<span class="sp"></span><button class="btn sm" onclick="editPatient('${p.id}')">編輯資料</button></div>
+      ${p.phone ? `<div style="margin-top:6px">📞 <a href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">${esc(p.phone)}</a></div>` : ''}
+      ${p.memo ? `<div style="margin-top:6px;white-space:pre-wrap">📌 ${esc(p.memo)}</div>` : ''}</div>
+    <h2>療程計畫 <span class="sp"></span><button class="btn sm primary" onclick="addPlan('${p.id}')">＋ 新增療程</button></h2>
+    ${plans.filter(x => !x.archived).map(planCard).join('') || '<div class="empty">還沒有療程。按「新增療程」，選療程類型和第一步的日期，App 會自動排出後面的時間。</div>'}
+    ${plans.some(x => x.archived) ? `<details class="pd"><summary>已結案的療程（${plans.filter(x => x.archived).length}）</summary>${plans.filter(x => x.archived).map(planCard).join('')}</details>` : ''}
+    <h2>治療紀錄 <span class="count">${logs.length}</span><span class="sp"></span><button class="btn sm primary" onclick="addLog('${p.id}')">＋ 寫紀錄</button></h2>
+    <div class="card">${logs.map(l => logHTML(l, false)).join('') || '<div class="empty">還沒有紀錄。</div>'}</div>`;
+}
+
+function editPatient(id){
+  const p = id ? pById(id) : {name:'', chartNo:'', clinic:'ZS', phone:'', flexible:false, memo:''};
+  openModal({
+    title: id ? '編輯病人資料' : '新增病人',
+    body: `<label class="f"><span>姓名 *</span><input name="name" required value="${esc(p.name)}"></label>
+      <div class="grid2"><label class="f"><span>病歷號</span><input name="chartNo" value="${esc(p.chartNo)}"></label>
+      <label class="f"><span>主要診所</span>${clinicSelect('clinic', p.clinic)}</label></div>
+      <label class="f"><span>電話</span><input name="phone" type="tel" value="${esc(p.phone)}"></label>
+      <label class="ck"><input type="checkbox" name="flexible" ${p.flexible ? 'checked' : ''}> 可以臨時通知提早來（空檔遞補時會優先列出）</label>
+      <label class="f"><span>注意事項（全身病史、用藥、方便的時段…）</span><textarea name="memo">${esc(p.memo)}</textarea></label>`,
+    danger: id ? {text:'刪除病人', fn: () => {
+      if(!confirm(`確定刪除「${p.name}」？\n他的療程與紀錄會一起刪除，無法復原。`)) return false;
+      S.patients = S.patients.filter(x => x.id !== id); S.plans = S.plans.filter(x => x.patientId !== id); S.logs = S.logs.filter(x => x.patientId !== id);
+      location.hash = '#patients';
+    }} : null,
+    onSave: fd => {
+      if(!fd.name) { alert('請填姓名'); return false; }
+      if(id) Object.assign(p, fd);
+      else { const np = Object.assign({id:uid(), created:today()}, fd); S.patients.push(np); setTimeout(() => location.hash = '#patient/' + np.id); }
+    }
+  });
+}
+
+function protoOptions(sel){
+  const cats = {};
+  for(const [k, v] of Object.entries(S.protocols)) (cats[v.cat || '其他'] = cats[v.cat || '其他'] || []).push(opt(k, v.name, k === sel));
+  return Object.entries(cats).map(([c, o]) => `<optgroup label="${esc(c)}">${o.join('')}</optgroup>`).join('');
+}
+function addPlan(pid){
+  const p = pById(pid);
+  openModal({
+    title: `新增療程・${esc(p.name)}`,
+    body: `<label class="f"><span>療程類型</span><select name="proto">${protoOptions()}</select></label>
+      <div class="grid2"><label class="f"><span>牙位（例如 #36、#14-16）</span><input name="site"></label>
+      <label class="f"><span>上／下顎</span><select name="jaw">${opt('', '—')}${opt('上顎','上顎')}${opt('下顎','下顎')}</select></label></div>
+      <label class="f"><span>在哪間診所做</span>${clinicSelect('clinic', p.clinic)}</label>
+      <label class="f"><span>第一步的日期（例如植入日、SRP 開始日）</span><input type="date" name="start" value="${today()}" required></label>
+      <label class="ck"><input type="checkbox" name="firstDone" checked> 第一步已經做了（日期就是上面那天）</label>
+      <label class="f"><span>備註（植體廠牌尺寸、ISQ、骨粉膜…）</span><textarea name="note"></textarea></label>
+      <div class="hint">選「上顎」時，植牙的癒合等待期會自動多加 4 週（可在「設定」調整）。後續日期都是預設參考，每一步都可以手動改。</div>`,
+    onSave: fd => {
+      const pr = S.protocols[fd.proto];
+      const steps = pr.steps.map(s => Object.assign({}, s));
+      if(fd.firstDone) steps[0].done = fd.start;
+      const pl = {id:uid(), patientId:pid, proto:fd.proto, protoName:pr.name, site:fd.site, jaw:fd.jaw, clinic:fd.clinic, start:fd.start, note:fd.note, steps};
+      applyRepeat(pl); S.plans.push(pl);
+    }
+  });
+}
+function editPlan(id){
+  const pl = planById(id);
+  openModal({
+    title: '編輯療程',
+    body: `<div class="muted" style="margin-bottom:10px">${esc(pl.protoName)}</div>
+      <div class="grid2"><label class="f"><span>牙位</span><input name="site" value="${esc(pl.site)}"></label>
+      <label class="f"><span>上／下顎</span><select name="jaw">${opt('', '—', !pl.jaw)}${opt('上顎','上顎', pl.jaw === '上顎')}${opt('下顎','下顎', pl.jaw === '下顎')}</select></label></div>
+      <label class="f"><span>診所</span>${clinicSelect('clinic', pl.clinic)}</label>
+      <label class="f"><span>第一步的日期</span><input type="date" name="start" value="${esc(pl.start)}"></label>
+      <label class="f"><span>備註</span><textarea name="note">${esc(pl.note)}</textarea></label>
+      <label class="ck"><input type="checkbox" name="archived" ${pl.archived ? 'checked' : ''}> 結案（不再出現在提醒和空檔遞補）</label>`,
+    danger: {text:'刪除療程', fn: () => { if(!confirm('確定刪除這個療程？無法復原。')) return false; S.plans = S.plans.filter(x => x.id !== id); }},
+    onSave: fd => { Object.assign(pl, fd); }
+  });
+}
+function editStep(planId, idx){
+  const pl = planById(planId), p = pById(pl.patientId), s = computeSteps(pl)[idx], raw = pl.steps[idx];
+  openModal({
+    title: `${esc(s.label)}`,
+    body: `<div class="muted" style="margin-bottom:10px">${esc(p.name)}・${esc(pl.protoName)}${pl.site ? '・' + esc(pl.site) : ''}<br>
+        推算最早可做：<b>${fmt(s.earliest)}</b>（${rel(s.earliest)}）${idx > 0 ? `・距上一步 ${s.offset} 天${pl.jaw === '上顎' && s.upperExtra ? `＋上顎 ${s.upperExtra} 天` : ''}` : ''}</div>
+      <label class="f"><span>已約日期</span><input type="date" name="appt" value="${esc(raw.appt||'')}"></label>
+      <label class="f"><span>完成日期</span><div class="row"><input type="date" name="done" value="${esc(raw.done||'')}" style="flex:1;width:auto">
+        <button type="button" class="btn sm" onclick="this.form.done.value='${today()}'">今天完成</button></div></label>
+      <label class="f"><span>手動指定「最早可做日」（臨床判斷要延後／提前時填，留空＝自動推算）</span><input type="date" name="manual" value="${esc(raw.manual||'')}"></label>
+      <label class="ck"><input type="checkbox" name="skipped" ${raw.skipped ? 'checked' : ''}> 略過這一步（例如不需要牙周手術）</label>
+      <label class="f"><span>這一步的備註</span><input name="note" value="${esc(raw.note||'')}"></label>
+      <div class="row"><button type="button" class="btn sm" onclick="document.getElementById('modal').close();addLog('${p.id}','${pl.id}|${idx}')">📝 改成寫一筆治療紀錄</button></div>`,
+    onSave: fd => {
+      for(const k of ['appt','done','manual','note']) { if(fd[k]) raw[k] = fd[k]; else delete raw[k]; }
+      if(fd.skipped) raw.skipped = true; else delete raw.skipped;
+      applyRepeat(pl);
+    }
+  });
+}
+
+/* ===================== 頁面：空檔遞補 ===================== */
+let fillDate = null, fillClinic = '';
+function renderFill(){
+  fillDate = fillDate || today();
+  const A = [], B = [];
+  for(const it of activeItems()){
+    const n = it.next; if(!n) continue;
+    if(fillClinic && it.plan.clinic !== fillClinic) continue;
+    if(n.earliest > fillDate) continue;               // 還不能做
+    if(n.appt){ if(n.appt > fillDate) A.push({it, n, gain: diff(fillDate, n.appt)}); }
+    else B.push({it, n, gain: diff(n.earliest, fillDate)});
+  }
+  const sorter = (a, b) => (b.it.p.flexible - a.it.p.flexible) || (b.gain - a.gain);
+  A.sort(sorter); B.sort(sorter);
+  return `<div class="hint">有病人臨時取消時，選日期和診所，這裡會列出「那天已經可以做下一步」的病人。<br>
+      ① 原本約得比較晚、可以提早來的；② 已經可以做、但還沒約的。標「可臨時提早」的病人排在最前面。</div>
+    <div class="toolbar"><input type="date" value="${fillDate}" onchange="fillDate=this.value;render()">
+      <select onchange="fillClinic=this.value;render()">${opt('', '全部診所', !fillClinic)}${Object.entries(CLINICS).map(([k,v]) => opt(k, k + ' ' + v, fillClinic === k)).join('')}</select></div>
+    <div class="muted">空檔日期：<b>${fmt(fillDate)}</b>（${rel(fillDate)}）</div>
+    ${section('① 可以提早來的（原本約在之後）', A.map(x => itemHTML(x.it.p, x.it.plan, x.n, {note:`<span class="small">可提早 <b>${x.gain}</b> 天</span>`})), '沒有約在之後、又已經可以做的病人。')}
+    ${section('② 已經可以做、還沒約的', B.map(x => itemHTML(x.it.p, x.it.plan, x.n)), '沒有。')}`;
+}
+
+/* ===================== 頁面：每日紀錄 ===================== */
+let logDate = null, logQ = '';
+function logHTML(l, showName){
+  const p = pById(l.patientId), pl = l.planId ? planById(l.planId) : null;
+  return `<div class="log"><div class="meta">${fmt(l.date)}${showName && p ? ` ・ <a href="#patient/${p.id}"><b>${esc(p.name)}</b></a> ${esc(p.chartNo)}` : ''}
+      ${pl && l.stepLabel ? ` ・ <span class="chip">${esc(pl.protoName)}${pl.site ? ' ' + esc(pl.site) : ''}：${esc(l.stepLabel)}</span>` : ''}
+      <button class="inline-link small" onclick="editLog('${l.id}')">編輯</button></div>
+    ${l.text ? `<div style="white-space:pre-wrap">${esc(l.text)}</div>` : ''}
+    ${l.reaction ? `<div class="react" style="white-space:pre-wrap">💬 病人反應：${esc(l.reaction)}</div>` : ''}</div>`;
+}
+function renderLogs(){
+  logDate = logDate || today();
+  let logs, title;
+  if(logQ){
+    const q = logQ.toLowerCase();
+    logs = S.logs.filter(l => ((pById(l.patientId)?.name||'') + l.text + l.reaction + (l.stepLabel||'')).toLowerCase().includes(q));
+    title = `搜尋「${esc(logQ)}」`;
+  } else { logs = S.logs.filter(l => l.date === logDate); title = fmt(logDate) + '（' + rel(logDate) + '）'; }
+  logs.sort((a, b) => b.date.localeCompare(a.date) || (a.ts||0) - (b.ts||0));
+  return `<div class="toolbar">
+      <button class="btn" onclick="logDate=addDays(logDate,-1);render()">‹ 前一天</button>
+      <input type="date" value="${logDate}" onchange="logDate=this.value;logQ='';render()">
+      <button class="btn" onclick="logDate=addDays(logDate,1);render()">後一天 ›</button>
+      <button class="btn" onclick="logDate=today();logQ='';render()">今天</button></div>
+    <div class="toolbar"><input type="search" placeholder="搜尋所有紀錄（姓名、處置、反應…）" value="${esc(logQ)}" onchange="logQ=this.value;render()">
+      <button class="btn primary" onclick="addLog(null,null,logDate)">＋ 寫紀錄</button></div>
+    <h2>${title} <span class="count">${logs.length} 筆</span></h2>
+    <div class="card">${logs.map(l => logHTML(l, true)).join('') || '<div class="empty">這天還沒有紀錄。</div>'}</div>`;
+}
+const pLabel = p => `${p.name}（${p.chartNo || '無病歷號'}）`;
+function addLog(pid, stepRef, date){
+  const fixed = pid ? pById(pid) : null;
+  openModal({
+    title: '寫治療紀錄',
+    body: `<label class="f"><span>日期</span><input type="date" name="date" value="${date || today()}"></label>
+      <label class="f"><span>病人</span>${fixed ? `<input value="${esc(pLabel(fixed))}" disabled>` :
+        `<input name="pname" list="plist-dl" placeholder="輸入姓名或病歷號挑選" autocomplete="off"><datalist id="plist-dl">${S.patients.map(p => `<option value="${esc(pLabel(p))}">`).join('')}</datalist>`}</label>
+      <label class="f"><span>今天做了什麼</span><textarea name="text" placeholder="例如：#36 印模，shade A3，比色照已拍"></textarea></label>
+      <label class="f"><span>病人反應</span><textarea name="reaction" placeholder="例如：術後輕微腫，止痛藥吃兩天；擔心費用"></textarea></label>
+      <label class="f"><span>同時把療程步驟標記為「完成」</span><select name="step"></select></label>
+      <label class="f"><span>下一步約在（選填）</span><input type="date" name="nextAppt"></label>`,
+    saveText: '儲存紀錄',
+    onOpen: f => {
+      const fill = p => {
+        const its = p ? activeItems().filter(i => i.p.id === p.id && i.next) : [];
+        f.step.innerHTML = opt('', '（不標記）') + its.map(i => opt(`${i.plan.id}|${i.next.idx}`, `${i.plan.protoName}${i.plan.site ? ' ' + i.plan.site : ''}：${i.next.label}`, stepRef === `${i.plan.id}|${i.next.idx}`)).join('');
+        if(stepRef && !f.step.value && its.length === 0) f.step.value = '';
+      };
+      if(fixed){
+        fill(fixed);
+        if(stepRef && ![...f.step.options].some(o => o.value === stepRef)){ // 非目前步驟（例如補登舊步驟）
+          const [plid, i] = stepRef.split('|'), pl = planById(plid);
+          f.step.insertAdjacentHTML('beforeend', opt(stepRef, `${pl.protoName}：${pl.steps[i].label}`, true));
+        }
+      } else { fill(null); f.pname.addEventListener('input', () => fill(S.patients.find(p => pLabel(p) === f.pname.value))); }
+    },
+    onSave: fd => {
+      const p = fixed || S.patients.find(x => pLabel(x) === fd.pname);
+      if(!p){ alert('請從清單中選擇病人（如果是新病人，先到「病人」新增）'); return false; }
+      if(!fd.text && !fd.reaction && !fd.step){ alert('請至少填一項內容'); return false; }
+      const log = {id:uid(), ts:Date.now(), date:fd.date || today(), patientId:p.id, text:fd.text, reaction:fd.reaction};
+      if(fd.step){
+        const [plid, i] = fd.step.split('|'), pl = planById(plid), st = pl.steps[+i];
+        st.done = log.date; delete st.skipped; log.planId = plid; log.stepLabel = st.label;
+        applyRepeat(pl);
+        if(fd.nextAppt){ const nx = nextStep(pl); if(nx) pl.steps[nx.idx].appt = fd.nextAppt; }
+      } else if(fd.nextAppt){ alert('「下一步約在」需要搭配上面選一個完成的步驟才知道是哪個療程，這次先不記約診日。'); }
+      S.logs.push(log);
+    }
+  });
+}
+function editLog(id){
+  const l = S.logs.find(x => x.id === id), p = pById(l.patientId);
+  openModal({
+    title: `編輯紀錄・${esc(p?.name||'')}`,
+    body: `<label class="f"><span>日期</span><input type="date" name="date" value="${esc(l.date)}"></label>
+      <label class="f"><span>做了什麼</span><textarea name="text">${esc(l.text)}</textarea></label>
+      <label class="f"><span>病人反應</span><textarea name="reaction">${esc(l.reaction)}</textarea></label>
+      ${l.stepLabel ? `<div class="small muted">這筆紀錄有標記步驟「${esc(l.stepLabel)}」完成；如需取消，請到該療程步驟修改。</div>` : ''}`,
+    danger: {text:'刪除', fn: () => { if(!confirm('刪除這筆紀錄？')) return false; S.logs = S.logs.filter(x => x.id !== id); }},
+    onSave: fd => { Object.assign(l, fd); }
+  });
+}
+
+/* ===================== 頁面：設定 ===================== */
+function renderSettings(){
+  const protoHTML = Object.entries(S.protocols).map(([k, pr]) => `<details class="pd"><summary>${esc(pr.cat)}｜${esc(pr.name)}</summary>
+    <table class="proto"><tr><th>步驟</th><th>距上一步（天）</th><th>上顎多加（天）</th><th>重複（天）</th><th></th></tr>
+    ${pr.steps.map((s, i) => `<tr><td><input value="${esc(s.label)}" onchange="setProto('${k}',${i},'label',this.value)"></td>
+      <td><input type="number" value="${s.offset}" ${i === 0 ? 'disabled' : ''} onchange="setProto('${k}',${i},'offset',+this.value)"></td>
+      <td><input type="number" value="${s.upperExtra||0}" onchange="setProto('${k}',${i},'upperExtra',+this.value)"></td>
+      <td><input type="number" value="${s.repeat||0}" title="最後一步填 >0：完成後自動排下一次（例如 SPT 90 天）" onchange="setProto('${k}',${i},'repeat',+this.value)"></td>
+      <td><button class="btn sm ghost" onclick="delProtoStep('${k}',${i})">✕</button></td></tr>`).join('')}</table>
+    <div class="row" style="margin-top:8px"><button class="btn sm" onclick="addProtoStep('${k}')">＋ 加一步</button><span class="sp"></span>
+      <button class="btn sm danger" onclick="delProto('${k}')">刪除這個療程範本</button></div></details>`).join('');
+  return `<h2>療程範本（間隔天數）</h2>
+    <div class="hint">這裡的天數是我依常見 protocol 預設的參考值，請改成你自己的習慣。修改只會影響<b>之後新增</b>的療程；已經建立的病人療程不會被改動（個別步驟可以手動調整日期）。粗體橘色的步驟（印模、裝戴）是重要節點。</div>
+    ${protoHTML}
+    <div class="row"><button class="btn" onclick="newProto()">＋ 新增自訂療程範本</button><button class="btn ghost" onclick="resetProto()">恢復預設範本</button></div>
+
+    <h2>備份與還原</h2>
+    <div class="card"><div>資料<b>只存在這台裝置的瀏覽器裡</b>，不會上傳到任何地方。如果清除 Safari 網站資料、或換 iPad，資料就會不見，所以請定期備份。</div>
+      <div class="small muted" style="margin:6px 0">上次備份：${S.meta.lastBackup ? fmt(S.meta.lastBackup) : '從未'}。備份檔含病人真實姓名，請存在你自己的 iCloud／裝置裡，不要傳給 AI 或其他外部服務。</div>
+      <div class="row"><button class="btn primary" onclick="exportData()">💾 匯出備份</button>
+      <label class="btn">📂 從備份還原<input type="file" accept="application/json,.json" style="display:none" onchange="importData(this.files[0])"></label></div></div>
+
+    <h2>示範資料</h2>
+    <div class="card"><div class="small">載入幾位虛構病人，先看看 App 的運作方式。示範資料可以一鍵清除，不會動到你的真實資料。</div>
+      <div class="row" style="margin-top:8px"><button class="btn" onclick="loadDemo()">載入示範資料</button><button class="btn" onclick="clearDemo()">清除示範資料</button></div></div>
+
+    <div class="small muted" style="margin-top:24px">統計：病人 ${S.patients.length} 位・療程 ${S.plans.length} 個・紀錄 ${S.logs.length} 筆。<br>
+      日期推算僅供排程參考，實際時機以臨床判斷為準。</div>`;
+}
+function setProto(k, i, f, v){ const s = S.protocols[k].steps[i]; if(v === 0 && f !== 'offset') delete s[f]; else s[f] = v; save(); }
+function addProtoStep(k){ S.protocols[k].steps.push({label:'新步驟', offset:7}); save(); render(); }
+function delProtoStep(k, i){ const st = S.protocols[k].steps; if(st.length <= 1) return alert('至少要有一步'); st.splice(i, 1); save(); render(); }
+function delProto(k){ if(confirm(`刪除範本「${S.protocols[k].name}」？（已建立的病人療程不受影響）`)){ delete S.protocols[k]; save(); render(); } }
+function resetProto(){ if(confirm('恢復成預設範本？你改過的天數和自訂範本會被覆蓋。（病人資料不受影響）')){ S.protocols = defaultProtocols(); save(); render(); } }
+function newProto(){
+  openModal({title:'新增療程範本', body:`<label class="f"><span>名稱</span><input name="name" required></label>
+    <label class="f"><span>分類</span><select name="cat">${['植牙','牙周','固定假牙','活動假牙','其他'].map(c => opt(c, c)).join('')}</select></label>
+    <div class="hint">建立後，到範本裡加入各個步驟和間隔天數。</div>`,
+    onSave: fd => { S.protocols['c_' + uid()] = {name:fd.name, cat:fd.cat, steps:[{label:'第一步', offset:0}]}; }});
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify(S, null, 1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `臻心特助備份-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove();
+  S.meta.lastBackup = today(); save(); setTimeout(render, 300);
+}
+function importData(file){
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!Array.isArray(d.patients) || !Array.isArray(d.plans)) throw new Error('格式不對');
+      if(!confirm(`備份檔內有 ${d.patients.length} 位病人、${(d.logs||[]).length} 筆紀錄。\n還原會「取代」目前這台裝置上的所有資料，確定嗎？`)) return;
+      S = d; S.logs = S.logs || []; S.meta = S.meta || {}; S.protocols = S.protocols || defaultProtocols();
+      save(); alert('還原完成'); render();
+    }catch(e){ alert('無法讀取這個檔案：' + e.message); }
+  };
+  r.readAsText(file);
+}
+function loadDemo(){
+  if(S.patients.some(p => p.demo)) return alert('示範資料已經載入了');
+  const t = today(), d = n => addDays(t, n);
+  const mk = (name, chartNo, clinic, phone, flexible, memo) => { const p = {id:uid(), name, chartNo, clinic, phone, flexible, memo, demo:true}; S.patients.push(p); return p; };
+  const plan = (p, proto, site, jaw, start, upto, appt) => {
+    const pr = S.protocols[proto] || defaultProtocols()[proto];
+    const pl = {id:uid(), patientId:p.id, proto, protoName:pr.name, site, jaw, clinic:p.clinic, start, note:'', steps:pr.steps.map(s => Object.assign({}, s))};
+    S.plans.push(pl);
+    for(let i = 0; i <= upto; i++){ const cs = computeSteps(pl); pl.steps[i].done = cs[i].earliest; }
+    if(appt){ const nx = nextStep(pl); if(nx) pl.steps[nx.idx].appt = appt; }
+    return pl;
+  };
+  const a = mk('示範-王先生', 'DEMO01', 'ZS', '0912-000-001', true, '高血壓，服用 amlodipine；平日下午較方便');
+  const b = mk('示範-林小姐', 'DEMO02', 'BZ', '0912-000-002', false, '');
+  const c = mk('示範-陳先生', 'DEMO03', 'YT', '0912-000-003', true, 'DM（HbA1c 6.8）');
+  const e = mk('示範-張太太', 'DEMO04', 'ZS', '0912-000-004', false, '怕痛，術前需多說明');
+  plan(a, 'implant_std', '#36', '下顎', d(-100), 2, d(20));          // 已可印模，但約在 20 天後 → 可提早
+  plan(b, 'implant_std', '#14', '上顎', d(-130), 2);                 // 上顎，已可印模、未約
+  plan(c, 'perio', '全口', '', d(-60), 2, null);                      // 該 re-evaluation 了
+  plan(e, 'crown', '#46', '下顎', d(-12), 0, t);                       // 今天試戴
+  plan(e, 'implant_gbr', '#24', '上顎', d(-40), 1);                   // 等待中
+  S.logs.push({id:uid(), ts:Date.now(), date:t, patientId:a.id, text:'#36 ISQ 78/80，牙齦癒合良好', reaction:'問什麼時候可以咬東西'});
+  save(); render(); alert('已載入 4 位示範病人，到「今天」和「空檔遞補」看看。');
+}
+function clearDemo(){
+  const ids = S.patients.filter(p => p.demo).map(p => p.id);
+  if(!ids.length) return alert('沒有示範資料');
+  S.patients = S.patients.filter(p => !p.demo); S.plans = S.plans.filter(p => !ids.includes(p.patientId)); S.logs = S.logs.filter(l => !ids.includes(l.patientId));
+  save(); render();
+}
+
+/* ===================== 路由 ===================== */
+function render(){
+  const h = location.hash.slice(1) || 'today', [tab, arg] = h.split('/');
+  const v = document.getElementById('view');
+  const pages = {today:renderToday, patients:renderPatients, patient:() => renderPatient(arg), fill:renderFill, logs:renderLogs, settings:renderSettings};
+  v.innerHTML = (pages[tab] || renderToday)();
+  const on = tab === 'patient' ? 'patients' : tab;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === on));
+  document.getElementById('hdrDate').textContent = fmt(today());
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { location.hash = '#' + b.dataset.tab; window.scrollTo(0, 0); });
+window.addEventListener('hashchange', render);
+document.addEventListener('visibilitychange', () => { if(!document.hidden && !document.getElementById('modal').open) render(); }); // 隔天打開時刷新日期
+load();
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
+if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js'); // 讓沒網路時也能打開
+render();
+</script>
+</body>
+</html>

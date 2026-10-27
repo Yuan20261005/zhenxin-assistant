@@ -163,12 +163,62 @@ let S;
 function load(){
   try{ S = JSON.parse(localStorage.getItem(DB_KEY)); }catch(e){ S = null; }
   if(!S) S = { patients:[], plans:[], logs:[], protocols:defaultProtocols(), meta:{lastBackup:null} };
-  S.meta = S.meta || {};
+  S.meta = S.meta || {}; S.deleted = S.deleted || {};
+  takeSnap();
 }
 function save(){
+  stamp();
   try{ localStorage.setItem(DB_KEY, JSON.stringify(S)); }
   catch(e){ alert('儲存失敗：' + e.message + '\n請盡快到「設定」匯出備份。'); }
+  takeSnap();
 }
+
+/* ===================== 同步用：記錄每筆資料的修改時間 ===================== */
+// 每次儲存時和上一次比對：有變動的資料蓋上修改時間 u；被刪掉的記在 S.deleted，合併時另一台才知道要刪
+const COLS = ['patients', 'plans', 'logs'];
+let snap = {};
+const recKey = r => { const c = Object.assign({}, r); delete c.u; return JSON.stringify(c); };
+function takeSnap(){
+  snap = {};
+  for(const c of COLS) for(const r of S[c]) snap[c + ':' + r.id] = recKey(r);
+  snap['#proto'] = JSON.stringify(S.protocols);
+}
+function stamp(){
+  const now = Date.now(), seen = new Set();
+  for(const c of COLS) for(const r of S[c]){
+    const k = c + ':' + r.id; seen.add(k);
+    if(snap[k] !== recKey(r)){ r.u = now; delete S.deleted[k]; }
+  }
+  for(const k in snap) if(k !== '#proto' && !seen.has(k)) S.deleted[k] = now;
+  if(JSON.stringify(S.protocols) !== snap['#proto']) S.meta.protoU = now;
+}
+// 合併另一台裝置的資料：同一筆以修改時間較新的為準，兩邊各自新增的都保留
+function mergeData(d){
+  const del = Object.assign({}, d.deleted || {});
+  for(const k in S.deleted) del[k] = Math.max(del[k] || 0, S.deleted[k]);
+  let added = 0, updated = 0, removed = 0;
+  for(const c of COLS){
+    const map = new Map(S[c].map(r => [r.id, r]));
+    for(const r of d[c] || []){
+      const cur = map.get(r.id);
+      if(!cur){ map.set(r.id, r); added++; }
+      else if((r.u || 0) > (cur.u || 0)){ map.set(r.id, r); updated++; }
+    }
+    const before = map.size;
+    S[c] = [...map.values()].filter(r => !(del[c + ':' + r.id] >= (r.u || 0)));
+    removed += before - S[c].length;
+  }
+  S.deleted = del;
+  if(d.protocols && (d.meta?.protoU || 0) > (S.meta.protoU || 0)){ S.protocols = d.protocols; S.meta.protoU = d.meta.protoU; }
+  if(d.meta?.lastBackup && (!S.meta.lastBackup || d.meta.lastBackup > S.meta.lastBackup)) S.meta.lastBackup = d.meta.lastBackup;
+  takeSnap(); // 保留對方的修改時間，不要重新蓋章
+  save();
+  return {added, updated, removed};
+}
+// 這台裝置自己的同步時間（不跟著同步）
+const DEV_KEY = 'zhenxin-device-v1';
+function dev(){ try{ return JSON.parse(localStorage.getItem(DEV_KEY)) || {}; }catch(e){ return {}; } }
+function setDev(k, v){ const d = dev(); d[k] = v; try{ localStorage.setItem(DEV_KEY, JSON.stringify(d)); }catch(e){} }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pById = id => S.patients.find(p => p.id === id);
@@ -289,8 +339,8 @@ function renderToday(){
   let banner = '';
   const lb = S.meta.lastBackup;
   if(S.patients.some(p => !p.demo) && (!lb || diff(lb, t) > 14))
-    banner = `<div class="banner">💾 ${lb ? `上次備份是 ${fmt(lb)}，已經超過兩週` : '你還沒有備份過'}。資料只存在這台 iPad，建議定期匯出備份。<span class="sp"></span><button class="btn sm" onclick="exportData()">立即備份</button></div>`;
-  return banner + `
+    banner = `<div class="banner">💾 ${lb ? `上次備份是 ${fmt(lb)}，已經超過兩週` : '你還沒有備份過'}。資料只存在這台裝置，建議按「存到 iCloud」。<span class="sp"></span><button class="btn sm" onclick="syncOut()">存到 iCloud</button></div>`;
+  return banner + syncBar() + `
   <div class="stats">
     <div class="stat" onclick="jump('s-appt')"><b>${todayAppts.length}</b><span>今日約診</span></div>
     <div class="stat" onclick="jump('s-ready')"><b style="color:var(--warn)">${ready.length}</b><span>可以約了、還沒約</span></div>
@@ -570,11 +620,19 @@ function renderSettings(){
     ${protoHTML}
     <div class="row"><button class="btn" onclick="newProto()">＋ 新增自訂療程範本</button><button class="btn ghost" onclick="resetProto()">恢復預設範本</button></div>
 
+    <h2>iPad ↔ iPhone 同步</h2>
+    ${syncBar()}
+    <div class="hint"><b>怎麼用：</b><br>
+      ① 在剛改過資料的那台按「<b>存到 iCloud</b>」→ 分享面板選「<b>儲存到檔案</b>」→「iCloud 雲碟」→ 存（如果問要不要取代舊檔，選「<b>取代</b>」）。<br>
+      ② 到另一台按「<b>從 iCloud 合併</b>」→ 選 iCloud 雲碟裡的「小羅特助-同步.json」。<br>
+      兩台各自新增的資料都會保留；同一筆資料改了兩邊，以<b>最後修改</b>的為準。<br>
+      ⚠️ 分享面板裡<b>只選「儲存到檔案」</b>，不要選 LINE、訊息、AirDrop 給別人：檔案裡有病人真實姓名。</div>
+
     <h2>備份與還原</h2>
-    <div class="card"><div>資料<b>只存在這台裝置的瀏覽器裡</b>，不會上傳到任何地方。如果清除 Safari 網站資料、或換 iPad，資料就會不見，所以請定期備份。</div>
-      <div class="small muted" style="margin:6px 0">上次備份：${S.meta.lastBackup ? fmt(S.meta.lastBackup) : '從未'}。備份檔含病人真實姓名，請存在你自己的 iCloud／裝置裡，不要傳給 AI 或其他外部服務。</div>
-      <div class="row"><button class="btn primary" onclick="exportData()">💾 匯出備份</button>
-      <label class="btn">📂 從備份還原<input type="file" accept="application/json,.json" style="display:none" onchange="importData(this.files[0])"></label></div></div>
+    <div class="card"><div>資料存在這台裝置的瀏覽器裡。「存到 iCloud」本身就是一份備份；這裡的備份是另外存一份<b>有日期的</b>檔案，萬一同步檔出問題時可以回到某一天。</div>
+      <div class="small muted" style="margin:6px 0">上次備份：${S.meta.lastBackup ? fmt(S.meta.lastBackup) : '從未'}。備份檔含病人真實姓名，請存在你自己的 iCloud，不要傳給 AI 或其他外部服務。</div>
+      <div class="row"><button class="btn" onclick="exportData()">💾 匯出有日期的備份</button>
+      <label class="btn">📂 完整還原（取代目前資料）<input type="file" accept="application/json,.json" style="display:none" onchange="importData(this.files[0]);this.value=''"></label></div></div>
 
     <h2>示範資料</h2>
     <div class="card"><div class="small">載入幾位虛構病人，先看看 App 的運作方式。示範資料可以一鍵清除，不會動到你的真實資料。</div>
@@ -594,11 +652,51 @@ function newProto(){
     <div class="hint">建立後，到範本裡加入各個步驟和間隔天數。</div>`,
     onSave: fd => { S.protocols['c_' + uid()] = {name:fd.name, cat:fd.cat, steps:[{label:'第一步', offset:0}]}; }});
 }
-function exportData(){
-  const blob = new Blob([JSON.stringify(S, null, 1)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `小羅特助備份-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove();
-  S.meta.lastBackup = today(); save(); setTimeout(render, 300);
+// 用 iOS 的分享面板存檔（可選「儲存到檔案」→ iCloud 雲碟）；不支援時改成下載
+async function saveFile(name){
+  const json = JSON.stringify(S);
+  const file = new File([json], name, {type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file]}); return true; }
+    catch(e){ if(e.name === 'AbortError') return false; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file);
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  return true;
+}
+async function syncOut(){
+  if(!await saveFile('小羅特助-同步.json')) return;
+  S.meta.lastBackup = today(); save();
+  setDev('lastOut', Date.now()); render();
+}
+function syncIn(file){
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!Array.isArray(d.patients) || !Array.isArray(d.plans)) throw new Error('格式不對');
+      const res = mergeData(d);
+      setDev('lastIn', Date.now()); render();
+      alert(`合併完成 ✅\n新增 ${res.added} 筆、更新 ${res.updated} 筆、移除 ${res.removed} 筆（另一台刪掉的）。\n\n如果這台也有新的修改，記得再按「存到 iCloud」，另一台才看得到。`);
+    }catch(e){ alert('無法讀取這個檔案：' + e.message); }
+  };
+  r.readAsText(file);
+}
+function ago(ts){
+  if(!ts) return '從未';
+  const m = Math.round((Date.now() - ts) / 60000);
+  if(m < 1) return '剛剛'; if(m < 60) return `${m} 分鐘前`;
+  const h = Math.round(m / 60); if(h < 24) return `${h} 小時前`;
+  return `${Math.round(h / 24)} 天前`;
+}
+const syncBar = () => `<div class="card row small">
+  <span>🔄 同步　存出：<b>${ago(dev().lastOut)}</b>・讀入：<b>${ago(dev().lastIn)}</b></span><span class="sp"></span>
+  <button class="btn sm primary" onclick="syncOut()">存到 iCloud</button>
+  <label class="btn sm">從 iCloud 合併<input type="file" accept="application/json,.json" style="display:none" onchange="syncIn(this.files[0]);this.value=''"></label></div>`;
+async function exportData(){
+  if(!await saveFile(`小羅特助備份-${today().replace(/-/g,'')}.json`)) return;
+  S.meta.lastBackup = today(); save(); render();
 }
 function importData(file){
   if(!file) return;
@@ -608,8 +706,8 @@ function importData(file){
       const d = JSON.parse(r.result);
       if(!Array.isArray(d.patients) || !Array.isArray(d.plans)) throw new Error('格式不對');
       if(!confirm(`備份檔內有 ${d.patients.length} 位病人、${(d.logs||[]).length} 筆紀錄。\n還原會「取代」目前這台裝置上的所有資料，確定嗎？`)) return;
-      S = d; S.logs = S.logs || []; S.meta = S.meta || {}; S.protocols = S.protocols || defaultProtocols();
-      save(); alert('還原完成'); render();
+      S = d; S.logs = S.logs || []; S.meta = S.meta || {}; S.deleted = S.deleted || {}; S.protocols = S.protocols || defaultProtocols();
+      takeSnap(); save(); alert('還原完成'); render();
     }catch(e){ alert('無法讀取這個檔案：' + e.message); }
   };
   r.readAsText(file);

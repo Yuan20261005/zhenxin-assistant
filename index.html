@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="臻心特助">
+<meta name="apple-mobile-web-app-title" content="小羅特助">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#2f6f6a">
 <meta name="robots" content="noindex">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<title>臻心特助</title>
+<title>小羅特助</title>
 <style>
 :root{
   --bg:#f6f3ee; --card:#ffffff; --ink:#2a2a28; --muted:#7a766f; --line:#e6e0d6;
@@ -113,7 +113,7 @@ details.pd summary{cursor:pointer;font-weight:600}
 </style>
 </head>
 <body>
-<header class="top"><h1>臻心特助</h1><span class="d" id="hdrDate"></span><span class="sp"></span></header>
+<header class="top"><h1>小羅特助</h1><span class="d" id="hdrDate"></span><span class="sp"></span></header>
 <main id="view"></main>
 <nav class="tabs" id="tabs">
   <button data-tab="today"><span class="ic">☀️</span>今天</button>
@@ -597,7 +597,7 @@ function newProto(){
 function exportData(){
   const blob = new Blob([JSON.stringify(S, null, 1)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `臻心特助備份-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove();
+  a.download = `小羅特助備份-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove();
   S.meta.lastBackup = today(); save(); setTimeout(render, 300);
 }
 function importData(file){

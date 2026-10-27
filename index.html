@@ -85,7 +85,10 @@ label.ck input{width:22px;height:22px}
 .timeline li{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;border-top:1px dashed var(--line);cursor:pointer;border-radius:8px}
 .timeline li:hover{background:var(--brand-soft)}
 .timeline .dot{width:22px;flex:none;text-align:center}
-.timeline .lbl{flex:1}
+.timeline .lbl{flex:1;min-width:8em}
+.timeline li>.chip{white-space:normal;max-width:100%}
+@media (max-width:520px){.timeline li{flex-wrap:wrap}.timeline li>.chip{margin-left:32px}}
+.item .chip{white-space:normal}
 .timeline li.done .lbl{color:var(--muted)}
 .timeline li.skip .lbl{color:var(--muted);text-decoration:line-through}
 .timeline li.cur{background:var(--warn-soft)}
@@ -93,6 +96,10 @@ label.ck input{width:22px;height:22px}
 .log .meta{font-size:14px;color:var(--muted)}
 .log .react{color:var(--info)}
 .hint{font-size:14px;color:var(--muted);background:var(--brand-soft);border-radius:10px;padding:10px 12px;margin:8px 0 14px}
+table.rv{width:100%;border-collapse:collapse;font-size:15px}
+table.rv td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+table.rv select,table.rv input{padding:5px 6px;font-size:15px}
+.busy{opacity:.6;pointer-events:none}
 dialog{border:0;border-radius:18px;padding:0;width:min(560px,94vw);max-height:90vh;background:var(--card);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25)}
 dialog::backdrop{background:rgba(0,0,0,.35)}
 .mform{display:flex;flex-direction:column;max-height:90vh}
@@ -262,7 +269,7 @@ function stepStatus(s){
   if(s.appt){
     if(s.appt < t) return {cls:'danger', text:`約診日已過（${fmt(s.appt)}），還沒標記完成`};
     const early = s.appt < s.earliest ? '　⚠️ 早於建議日 ' + fmt(s.earliest) : '';
-    return {cls:'info', text:`已約 ${fmt(s.appt)}・${rel(s.appt)}${early}`};
+    return {cls:'info', text:`已約 ${fmt(s.appt)}${s.apptTime ? ' ' + s.apptTime : ''}・${rel(s.appt)}${early}`};
   }
   if(s.earliest <= t){
     const n = diff(s.earliest, t);
@@ -303,12 +310,12 @@ function itemHTML(p, plan, s, extra){
 const section = (title, arr, emptyText, id) =>
   `<h2 ${id ? `id="${id}"` : ''}>${title} <span class="count">${arr.length}</span></h2>` + (arr.length ? arr.join('') : `<div class="empty">${emptyText}</div>`);
 
-function openModal({title, body, onSave, saveText, danger, onOpen}){
+function openModal({title, body, onSave, saveText, danger, onOpen, hideSave}){
   const m = document.getElementById('modal');
   m.innerHTML = `<form class="mform"><h3>${title}</h3><div class="mbody">${body}</div>
     <div class="mfoot">${danger ? `<button type="button" class="btn danger" data-act="danger">${danger.text}</button>` : ''}
     <span class="sp"></span><button type="button" class="btn ghost" data-act="cancel">取消</button>
-    <button type="submit" class="btn primary">${saveText || '儲存'}</button></div></form>`;
+    ${hideSave ? '' : `<button type="submit" class="btn primary">${saveText || '儲存'}</button>`}</div></form>`;
   const f = m.querySelector('form');
   f.onsubmit = e => {
     e.preventDefault();
@@ -317,7 +324,7 @@ function openModal({title, body, onSave, saveText, danger, onOpen}){
   };
   f.querySelector('[data-act=cancel]').onclick = () => m.close();
   if(danger) f.querySelector('[data-act=danger]').onclick = () => { if(danger.fn() !== false){ m.close(); save(); render(); } };
-  m.showModal();
+  if(!m.open) m.showModal();
   if(onOpen) onOpen(f);
 }
 const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
@@ -347,7 +354,7 @@ function renderToday(){
     <div class="stat" onclick="jump('s-over')"><b style="color:var(--danger)">${overdueAppt.length}</b><span>約診已過未標記</span></div>
     <div class="stat" onclick="location.hash='#logs'"><b>${todayLogs.length}</b><span>今天的紀錄</span></div>
   </div>
-  <div class="row" style="margin-top:8px"><button class="btn primary" onclick="addLog()">＋ 寫今天的紀錄</button><button class="btn" onclick="editPatient()">＋ 新增病人</button></div>
+  <div class="row" style="margin-top:8px"><button class="btn primary" onclick="addLog()">＋ 寫今天的紀錄</button><button class="btn" onclick="editPatient()">＋ 新增病人</button><button class="btn" onclick="photoRead()">📷 拍照讀取</button></div>
   ${section('🗓️ 今日約診', todayAppts, '今天沒有登記的約診。（在病人的療程步驟裡填「已約日期」就會出現在這裡）', 's-appt')}
   ${section('🔔 可以約下一步了，但還沒約', sorted(ready), '目前沒有。', 's-ready')}
   ${section('⚠️ 約診日已過，還沒標記完成', sorted(overdueAppt), '沒有，很好。', 's-over')}
@@ -376,7 +383,7 @@ function renderPatients(){
     </div>${p.phone ? `<a class="call" href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">📞</a>` : ''}</div>`);
   return `<div class="toolbar"><input type="search" placeholder="搜尋姓名、病歷號、電話、備註…" value="${esc(pq)}" oninput="pq=this.value;rerenderList()">
     <select onchange="pclinic=this.value;rerenderList()">${opt('', '全部診所', !pclinic)}${Object.entries(CLINICS).map(([k,v]) => opt(k, k + ' ' + v, pclinic === k)).join('')}</select>
-    <button class="btn primary" onclick="editPatient()">＋ 新增病人</button></div>
+    <button class="btn primary" onclick="editPatient()">＋ 新增病人</button><button class="btn" onclick="photoRead()">📷 拍照讀取</button></div>
     <div id="plist">${list.join('') || '<div class="empty">沒有符合的病人。</div>'}</div>`;
 }
 function rerenderList(){ const tmp = document.createElement('div'); tmp.innerHTML = renderPatients(); document.getElementById('plist').replaceWith(tmp.querySelector('#plist')); }
@@ -404,10 +411,12 @@ function renderPatient(id){
     <div class="card"><div class="row"><span style="font-size:22px;font-weight:700">${esc(p.name)}</span><span class="muted">${esc(p.chartNo)}</span>${clinicBadge(p.clinic)}
       ${p.flexible ? '<span class="chip ok">可臨時提早</span>' : ''}<span class="sp"></span><button class="btn sm" onclick="editPatient('${p.id}')">編輯資料</button></div>
       ${p.phone ? `<div style="margin-top:6px">📞 <a href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">${esc(p.phone)}</a></div>` : ''}
+      ${p.birthday ? `<div style="margin-top:6px">🎂 ${esc(p.birthday)}</div>` : ''}
       ${p.memo ? `<div style="margin-top:6px;white-space:pre-wrap">📌 ${esc(p.memo)}</div>` : ''}</div>
     <h2>療程計畫 <span class="sp"></span><button class="btn sm primary" onclick="addPlan('${p.id}')">＋ 新增療程</button></h2>
     ${plans.filter(x => !x.archived).map(planCard).join('') || '<div class="empty">還沒有療程。按「新增療程」，選療程類型和第一步的日期，App 會自動排出後面的時間。</div>'}
     ${plans.some(x => x.archived) ? `<details class="pd"><summary>已結案的療程（${plans.filter(x => x.archived).length}）</summary>${plans.filter(x => x.archived).map(planCard).join('')}</details>` : ''}
+    ${feesHTML(p)}
     <h2>治療紀錄 <span class="count">${logs.length}</span><span class="sp"></span><button class="btn sm primary" onclick="addLog('${p.id}')">＋ 寫紀錄</button></h2>
     <div class="card">${logs.map(l => logHTML(l, false)).join('') || '<div class="empty">還沒有紀錄。</div>'}</div>`;
 }
@@ -419,7 +428,8 @@ function editPatient(id){
     body: `<label class="f"><span>姓名 *</span><input name="name" required value="${esc(p.name)}"></label>
       <div class="grid2"><label class="f"><span>病歷號</span><input name="chartNo" value="${esc(p.chartNo)}"></label>
       <label class="f"><span>主要診所</span>${clinicSelect('clinic', p.clinic)}</label></div>
-      <label class="f"><span>電話</span><input name="phone" type="tel" value="${esc(p.phone)}"></label>
+      <div class="grid2"><label class="f"><span>電話</span><input name="phone" type="tel" value="${esc(p.phone)}"></label>
+      <label class="f"><span>生日</span><input name="birthday" type="date" value="${esc(p.birthday||'')}"></label></div>
       <label class="ck"><input type="checkbox" name="flexible" ${p.flexible ? 'checked' : ''}> 可以臨時通知提早來（空檔遞補時會優先列出）</label>
       <label class="f"><span>注意事項（全身病史、用藥、方便的時段…）</span><textarea name="memo">${esc(p.memo)}</textarea></label>`,
     danger: id ? {text:'刪除病人', fn: () => {
@@ -490,6 +500,7 @@ function editStep(planId, idx){
       <label class="f"><span>這一步的備註</span><input name="note" value="${esc(raw.note||'')}"></label>
       <div class="row"><button type="button" class="btn sm" onclick="document.getElementById('modal').close();addLog('${p.id}','${pl.id}|${idx}')">📝 改成寫一筆治療紀錄</button></div>`,
     onSave: fd => {
+      if((fd.appt || '') !== (raw.appt || '')) delete raw.apptTime;
       for(const k of ['appt','done','manual','note']) { if(fd[k]) raw[k] = fd[k]; else delete raw[k]; }
       if(fd.skipped) raw.skipped = true; else delete raw.skipped;
       applyRepeat(pl);
@@ -557,7 +568,9 @@ function addLog(pid, stepRef, date){
     body: `<label class="f"><span>日期</span><input type="date" name="date" value="${date || today()}"></label>
       <label class="f"><span>病人</span>${fixed ? `<input value="${esc(pLabel(fixed))}" disabled>` :
         `<input name="pname" list="plist-dl" placeholder="輸入姓名或病歷號挑選" autocomplete="off"><datalist id="plist-dl">${S.patients.map(p => `<option value="${esc(pLabel(p))}">`).join('')}</datalist>`}</label>
-      <label class="f"><span>今天做了什麼</span><textarea name="text" placeholder="例如：#36 印模，shade A3，比色照已拍"></textarea></label>
+      <div class="hint">🎤 <b>用說的：</b>點下面的文字框，按鍵盤上的麥克風直接口述（隨便講、不用分段），講完按「✨ AI 整理」，AI 會幫你分成「做了什麼／病人反應」，並判斷完成了哪個步驟、下次約診日。${dev().apiKey ? '' : '<br>（AI 功能要先到「設定」填 API 金鑰）'}</div>
+      <label class="f"><span>今天做了什麼（可以直接口述在這裡）</span><textarea name="text" placeholder="例如：#36 印模，shade A3，比色照已拍"></textarea></label>
+      <div class="row" style="margin:-4px 0 12px"><button type="button" class="btn" data-ai>✨ AI 整理</button><span class="small muted" data-aimsg></span></div>
       <label class="f"><span>病人反應</span><textarea name="reaction" placeholder="例如：術後輕微腫，止痛藥吃兩天；擔心費用"></textarea></label>
       <label class="f"><span>同時把療程步驟標記為「完成」</span><select name="step"></select></label>
       <label class="f"><span>下一步約在（選填）</span><input type="date" name="nextAppt"></label>`,
@@ -575,12 +588,14 @@ function addLog(pid, stepRef, date){
           f.step.insertAdjacentHTML('beforeend', opt(stepRef, `${pl.protoName}：${pl.steps[i].label}`, true));
         }
       } else { fill(null); f.pname.addEventListener('input', () => fill(S.patients.find(p => pLabel(p) === f.pname.value))); }
+      f.querySelector('[data-ai]').onclick = () => aiOrganizeLog(f, fixed, fill);
     },
     onSave: fd => {
       const p = fixed || S.patients.find(x => pLabel(x) === fd.pname);
       if(!p){ alert('請從清單中選擇病人（如果是新病人，先到「病人」新增）'); return false; }
       if(!fd.text && !fd.reaction && !fd.step){ alert('請至少填一項內容'); return false; }
       const log = {id:uid(), ts:Date.now(), date:fd.date || today(), patientId:p.id, text:fd.text, reaction:fd.reaction};
+      if(fd.raw) log.raw = fd.raw; // AI 整理前的原始口述
       if(fd.step){
         const [plid, i] = fd.step.split('|'), pl = planById(plid), st = pl.steps[+i];
         st.done = log.date; delete st.skipped; log.planId = plid; log.stepLabel = st.label;
@@ -633,6 +648,8 @@ function renderSettings(){
       <div class="small muted" style="margin:6px 0">上次備份：${S.meta.lastBackup ? fmt(S.meta.lastBackup) : '從未'}。備份檔含病人真實姓名，請存在你自己的 iCloud，不要傳給 AI 或其他外部服務。</div>
       <div class="row"><button class="btn" onclick="exportData()">💾 匯出有日期的備份</button>
       <label class="btn">📂 完整還原（取代目前資料）<input type="file" accept="application/json,.json" style="display:none" onchange="importData(this.files[0]);this.value=''"></label></div></div>
+
+    ${aiSettingsHTML()}
 
     <h2>示範資料</h2>
     <div class="card"><div class="small">載入幾位虛構病人，先看看 App 的運作方式。示範資料可以一鍵清除，不會動到你的真實資料。</div>
@@ -741,6 +758,248 @@ function clearDemo(){
   if(!ids.length) return alert('沒有示範資料');
   S.patients = S.patients.filter(p => !p.demo); S.plans = S.plans.filter(p => !ids.includes(p.patientId)); S.logs = S.logs.filter(l => !ids.includes(l.patientId));
   save(); render();
+}
+
+/* ===================== AI（Claude） ===================== */
+// 金鑰只存在這台裝置（dev），不放進同步檔。SDK 第一次用到時才從 CDN 載入。
+const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.133.0/+esm';
+const AI_MODEL = 'claude-opus-5-5';
+let SDK = null;
+async function aiJSON({system, content, schema, effort}){
+  const key = dev().apiKey;
+  if(!key) throw new Error('還沒設定 API 金鑰，請到「設定 → AI 功能」填寫。');
+  if(!SDK){ try{ SDK = (await import(SDK_URL)).default; }catch(e){ throw new Error('載入 AI 元件失敗，請確認有網路。'); } }
+  const client = new SDK({apiKey: key, dangerouslyAllowBrowser: true});
+  let res;
+  try{
+    res = await client.beta.messages.create({
+      model: AI_MODEL, max_tokens: 16000,
+      betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+      system, messages: [{role: 'user', content}],
+      output_config: {effort: effort || 'medium', format: {type: 'json_schema', schema}},
+    });
+  }catch(e){
+    if(e instanceof SDK.AuthenticationError) throw new Error('API 金鑰不正確，請到「設定」重新貼上。');
+    if(e instanceof SDK.RateLimitError) throw new Error('使用太頻繁，請等一分鐘再試。');
+    if(e instanceof SDK.APIConnectionError) throw new Error('連不上 AI，請確認網路。');
+    if(e instanceof SDK.APIError && /credit/i.test(e.message)) throw new Error('API 帳戶餘額不足，請到 Anthropic Console 儲值。');
+    throw new Error('AI 發生錯誤：' + (e.message || e));
+  }
+  if(res.stop_reason === 'refusal') throw new Error('AI 沒有處理這個內容，請改用手動輸入。');
+  if(res.stop_reason === 'max_tokens') throw new Error('內容太長，AI 沒整理完，請分成幾次。');
+  return JSON.parse(res.content.filter(b => b.type === 'text').map(b => b.text).join(''));
+}
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+
+/* ---------- 口述紀錄整理 ---------- */
+const LOG_SYSTEM = '你是牙醫師（專長植牙與牙周）的看診助理。把醫師口述的看診摘要（語音轉文字，可能有錯字）整理成乾淨的病歷式紀錄。使用繁體中文，專業術語保留英文原文（例如 ISQ、SRP、GBR、shade、healing abutment）。修正明顯的語音辨識錯字，但不要加入口述中沒有的內容。牙位用 FDI 記法（例如 #36）。';
+const LOG_SCHEMA = {type: 'object', additionalProperties: false,
+  required: ['text', 'reaction', 'todo', 'nextAppt', 'step', 'patientId'],
+  properties: {
+    text: {type: 'string', description: '這次做了什麼：處置、牙位、材料、數據，簡潔條列'},
+    reaction: {type: 'string', description: '病人的反應、感受、擔心或主訴；沒有就空字串'},
+    todo: {type: 'string', description: '下次要做或要注意的事；沒有就空字串'},
+    nextAppt: {type: 'string', description: '口述中提到的下次約診日期 YYYY-MM-DD；沒提到就空字串'},
+    step: {type: 'string', description: '這次完成的療程步驟代碼（從提供的清單挑）；不確定就空字串'},
+    patientId: {type: 'string', description: '病人代碼（從提供的名單挑）；已指定病人或不確定就空字串'},
+  }};
+async function aiOrganizeLog(f, fixed, fill){
+  const raw = [f.text.value.trim(), f.reaction.value.trim()].filter(Boolean).join('\n');
+  const msg = f.querySelector('[data-aimsg]');
+  if(!raw) return alert('先在「今天做了什麼」口述或打一些內容。');
+  const p = fixed || S.patients.find(x => pLabel(x) === (f.pname ? f.pname.value : ''));
+  const stepOpts = [...f.step.options].filter(o => o.value);
+  const ctx = [`今天是 ${today()}（星期${WD[new Date().getDay()]}）。`];
+  if(p) ctx.push(`病人：${p.name}（${p.chartNo || '無病歷號'}）${p.memo ? '。注意事項：' + p.memo : ''}`);
+  else ctx.push('病人還沒選，請從口述判斷是哪一位。病人名單（代碼: 姓名(病歷號)）：\n' + S.patients.map(x => `${x.id}: ${x.name}(${x.chartNo || ''})`).join('\n'));
+  if(stepOpts.length) ctx.push('這位病人目前可以標記完成的療程步驟（代碼: 說明）：\n' + stepOpts.map(o => `${o.value}: ${o.text}`).join('\n'));
+  f.classList.add('busy'); msg.textContent = 'AI 整理中…（約 10–30 秒）';
+  try{
+    const r = await aiJSON({system: LOG_SYSTEM, content: ctx.join('\n\n') + '\n\n醫師口述：\n' + raw, schema: LOG_SCHEMA});
+    if(!f.raw) f.insertAdjacentHTML('beforeend', '<input type="hidden" name="raw">');
+    f.raw.value = raw;
+    f.text.value = r.text + (r.todo ? '\n下次：' + r.todo : '');
+    f.reaction.value = r.reaction;
+    if(!p && r.patientId){ const np = pById(r.patientId); if(np){ f.pname.value = pLabel(np); fill(np); } }
+    if(r.step && [...f.step.options].some(o => o.value === r.step)) f.step.value = r.step;
+    if(isDate(r.nextAppt)) f.nextAppt.value = r.nextAppt;
+    msg.textContent = '✅ 整理好了，請確認後按「儲存紀錄」（原始口述也會一起保存）';
+  }catch(e){ msg.textContent = '⚠️ ' + e.message; }
+  f.classList.remove('busy');
+}
+
+/* ---------- 拍照讀取（約診表、病人資料、自費資料） ---------- */
+const strObj = keys => ({type: 'object', additionalProperties: false, required: keys, properties: Object.fromEntries(keys.map(k => [k, {type: 'string'}]))});
+const PHOTO_SCHEMA = {type: 'object', additionalProperties: false, required: ['appointments', 'patients', 'fees'], properties: {
+  appointments: {type: 'array', items: strObj(['name', 'chartNo', 'date', 'time', 'item', 'clinic'])},
+  patients: {type: 'array', items: strObj(['name', 'chartNo', 'phone', 'birthday', 'clinic', 'memo'])},
+  fees: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['name', 'chartNo', 'date', 'item', 'amount', 'paid', 'note'],
+    properties: {name: {type: 'string'}, chartNo: {type: 'string'}, date: {type: 'string'}, item: {type: 'string'}, amount: {type: 'number'}, paid: {type: 'number'}, note: {type: 'string'}}}},
+}};
+const PHOTO_SYSTEM = '你是牙醫診所的資料助理，負責把照片裡的文字（約診表、病人基本資料、自費收費單據；可能是手寫、列印或螢幕截圖）轉成結構化資料。規則：只填照片中看得到的內容，看不清楚或沒有的欄位填空字串（數字填 0），不要猜測或編造。日期一律轉成西元 YYYY-MM-DD（民國年加 1911，例如 115/11/3 → 2026-11-03）；只有月日沒有年份時，用離今天最近的年份。時間用 24 小時制 HH:MM。金額是新台幣數字，不含逗號與符號。診所代號：永春臻心=ZS、暖暖微風=BZ、汐止雲天=YT，看不出來就空字串。病人背景資料的 memo 放全身病史、過敏、用藥、特殊注意事項，簡潔條列。';
+const PHOTO_KIND = {
+  auto: '請判斷照片是哪一類資料，填到對應的陣列，其他陣列留空。',
+  schedule: '這是約診表或紙本清單，請把每一位病人的約診填進 appointments，其他陣列留空。',
+  patient: '這是病人背景資料，請填進 patients，其他陣列留空。',
+  fee: '這是自費收費資料，請填進 fees（amount = 應收總額，paid = 已收金額），其他陣列留空。',
+};
+function photoRead(){
+  if(!dev().apiKey){ alert('拍照讀取要用 AI，請先到「設定 → AI 功能」填 API 金鑰。'); location.hash = '#settings'; return; }
+  openModal({title: '📷 拍照讀取', hideSave: true,
+    body: `<div class="hint">可以拍：<b>約診表／紙本清單</b>、<b>病人背景資料</b>、<b>自費收費資料</b>，一次可以選多張。AI 讀完會先列出來讓你確認，<b>按「套用」才會寫進資料</b>。照片本身不會存起來。</div>
+      <label class="f"><span>這是什麼？</span><select name="kind">${opt('auto', '讓 AI 自己判斷')}${opt('schedule', '約診表／紙本清單')}${opt('patient', '病人背景資料')}${opt('fee', '自費收費資料')}</select></label>
+      <label class="btn primary" style="display:block;text-align:center">📷 拍照或選照片<input type="file" accept="image/*" multiple style="display:none" name="photos"></label>
+      <div class="small" data-msg style="margin-top:10px"></div>`,
+    onOpen: f => { f.photos.onchange = () => runPhoto(f); }});
+}
+function toJpegB64(file, max){
+  return new Promise((ok, bad) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const r = Math.min(1, (max || 2000) / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      ok(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('無法讀取這張照片，請改用截圖再試一次。')); };
+    img.src = url;
+  });
+}
+async function runPhoto(f){
+  const files = [...f.photos.files]; if(!files.length) return;
+  const msg = f.querySelector('[data-msg]');
+  f.classList.add('busy'); msg.textContent = `AI 讀取中…（${files.length} 張，約 20–60 秒，請不要關掉）`;
+  try{
+    const imgs = await Promise.all(files.map(x => toJpegB64(x)));
+    const content = [...imgs.map(d => ({type: 'image', source: {type: 'base64', media_type: 'image/jpeg', data: d}})),
+      {type: 'text', text: `今天是 ${today()}。` + PHOTO_KIND[f.kind.value]}];
+    const r = await aiJSON({system: PHOTO_SYSTEM, content, schema: PHOTO_SCHEMA});
+    f.classList.remove('busy');
+    showReview(r);
+  }catch(e){ msg.textContent = '⚠️ ' + e.message; f.classList.remove('busy'); f.photos.value = ''; }
+}
+function matchPatient(name, chartNo){
+  if(chartNo){ const p = S.patients.find(x => x.chartNo && x.chartNo.trim() === chartNo.trim()); if(p) return p; }
+  const n = (name || '').replace(/\s/g, '');
+  return n ? S.patients.find(x => x.name.replace(/\s/g, '') === n) || null : null;
+}
+function patientSelect(row){
+  const m = matchPatient(row.name, row.chartNo);
+  return `<select data-p>${opt('', '— 略過 —', !m && !row.name)}${opt('new', `＋ 新病人：${row.name || '（無名）'}`, !m && !!row.name)}${
+    [...S.patients].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant')).map(x => opt(x.id, pLabel(x), m && m.id === x.id)).join('')}</select>
+    ${m ? '<div class="small" style="color:var(--ok)">✓ 已對到現有病人</div>' : row.name ? '<div class="small" style="color:var(--warn)">找不到這位，預設新增為新病人</div>' : ''}`;
+}
+function stepOptsFor(pid, clinic, date){
+  if(!isDate(date)) return opt('', '（日期看不清楚，不設約診）');
+  const its = pid && pid !== 'new' ? activeItems().filter(i => i.p.id === pid && i.next) : [];
+  if(!its.length) return opt('', pid ? '（沒有進行中的療程，不設約診）' : '');
+  const best = its.find(i => i.plan.clinic === clinic) || its[0];
+  return its.map(i => opt(`${i.plan.id}|${i.next.idx}`, `約在：${i.plan.protoName}${i.plan.site ? ' ' + i.plan.site : ''}－${i.next.label}`, i === best)).join('') + opt('', '不設約診');
+}
+const money = n => 'NT$' + Math.round(+n || 0).toLocaleString();
+function showReview(r){
+  const row = (kind, i, desc, extra) => `<tr data-kind="${kind}" data-i="${i}"><td style="width:30px"><input type="checkbox" data-on checked style="width:22px;height:22px"></td><td>${desc}${extra || ''}</td></tr>`;
+  const A = r.appointments.map((a, i) => row('a', i, `<b>${esc(a.name || '（無名）')}</b> <span class="muted">${esc(a.chartNo)}</span>
+      <div class="small">🗓️ ${esc(a.date || '日期？')} ${esc(a.time)} ${esc(a.item)} ${a.clinic ? clinicBadge(a.clinic) : ''}</div>`, patientSelect(a) + '<select data-step style="margin-top:4px"></select>'));
+  const Pn = r.patients.map((p, i) => row('p', i, `<b>${esc(p.name || '（無名）')}</b> <span class="muted">${esc(p.chartNo)}</span>
+      <div class="small">${[p.phone && '📞 ' + esc(p.phone), p.birthday && '🎂 ' + esc(p.birthday)].filter(Boolean).join('　')}</div>
+      ${p.memo ? `<div class="small" style="white-space:pre-wrap">📌 ${esc(p.memo)}</div>` : ''}`, patientSelect(p)));
+  const F = r.fees.map((x, i) => row('f', i, `<b>${esc(x.name || '（無名）')}</b> <span class="muted">${esc(x.chartNo)}</span>
+      <div class="small">${esc(x.date)} ${esc(x.item)}：${money(x.amount)}（已收 ${money(x.paid)}）${x.note ? '・' + esc(x.note) : ''}</div>`, patientSelect(x)));
+  const block = (t, rows) => rows.length ? `<h2>${t} <span class="count">${rows.length}</span></h2><table class="rv">${rows.join('')}</table>` : '';
+  const total = A.length + Pn.length + F.length;
+  openModal({title: '確認 AI 讀到的資料', saveText: '套用勾選的項目', hideSave: !total,
+    body: total ? `<div class="hint">請核對 AI 讀到的內容。每一列可以改「對應到哪位病人」，不要的就取消勾選。</div>
+      ${block('🗓️ 約診', A)}${block('👤 病人資料', Pn)}${block('💰 自費', F)}` : '<div class="empty">AI 在照片裡沒有讀到可用的資料。可以拍清楚一點、或換個角度再試。</div>',
+    onOpen: f => f.querySelectorAll('tr[data-kind=a]').forEach(tr => {
+      const a = r.appointments[+tr.dataset.i], ps = tr.querySelector('[data-p]'), ss = tr.querySelector('[data-step]');
+      const upd = () => { ss.innerHTML = stepOptsFor(ps.value, a.clinic, a.date); ss.style.display = ss.options.length && ss.options[0].text ? '' : 'none'; };
+      ps.addEventListener('change', upd); upd();
+    }),
+    onSave: (fd, f) => applyReview(f, r)});
+}
+function applyReview(f, r){
+  const created = {}; let n = 0;
+  const getP = (sel, row) => {
+    if(!sel) return null;
+    if(sel !== 'new') return pById(sel);
+    const key = (row.chartNo || '') + '|' + (row.name || '');
+    if(!created[key]){
+      created[key] = {id: uid(), created: today(), name: row.name || '（未命名）', chartNo: row.chartNo || '', clinic: CLINICS[row.clinic] ? row.clinic : 'ZS', phone: '', flexible: false, memo: ''};
+      S.patients.push(created[key]);
+    }
+    return created[key];
+  };
+  for(const tr of f.querySelectorAll('tr[data-kind]')){
+    if(!tr.querySelector('[data-on]').checked) continue;
+    const kind = tr.dataset.kind, row = r[{a: 'appointments', p: 'patients', f: 'fees'}[kind]][+tr.dataset.i];
+    const p = getP(tr.querySelector('[data-p]').value, row); if(!p) continue;
+    if(kind === 'a'){
+      const v = tr.querySelector('[data-step]').value;
+      if(v){ const [plid, i] = v.split('|'), st = planById(plid).steps[+i]; st.appt = row.date; if(row.time) st.apptTime = row.time; else delete st.apptTime; }
+    }
+    if(kind === 'p'){
+      for(const k of ['chartNo', 'phone']) if(row[k] && !p[k]) p[k] = row[k];
+      if(isDate(row.birthday) && !p.birthday) p.birthday = row.birthday;
+      if(row.memo && !(p.memo || '').includes(row.memo)) p.memo = (p.memo ? p.memo + '\n' : '') + row.memo;
+    }
+    if(kind === 'f'){
+      p.fees = p.fees || [];
+      p.fees.push({id: uid(), date: isDate(row.date) ? row.date : today(), item: row.item || '自費', amount: +row.amount || 0, paid: +row.paid || 0, note: row.note || ''});
+    }
+    n++;
+  }
+  setTimeout(() => alert(`已套用 ${n} 筆。`), 50);
+}
+
+/* ---------- 自費紀錄 ---------- */
+function feesHTML(p){
+  const fees = p.fees || [];
+  const total = fees.reduce((a, x) => a + (+x.amount || 0), 0), paid = fees.reduce((a, x) => a + (+x.paid || 0), 0);
+  return `<h2>自費紀錄 <span class="count">${fees.length}</span><span class="sp"></span><button class="btn sm primary" onclick="editFee('${p.id}')">＋ 新增</button></h2>
+    ${fees.length ? `<div class="card"><div class="row small"><span>總額 <b>${money(total)}</b></span><span>已收 <b style="color:var(--ok)">${money(paid)}</b></span>
+      <span>未收 <b style="color:${total - paid > 0 ? 'var(--danger)' : 'inherit'}">${money(total - paid)}</b></span></div>
+      <table class="rv">${[...fees].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(x => `<tr onclick="editFee('${p.id}','${x.id}')" style="cursor:pointer">
+        <td class="small" style="white-space:nowrap">${esc(x.date || '')}</td><td>${esc(x.item)}${x.note ? `<div class="small muted">${esc(x.note)}</div>` : ''}</td>
+        <td style="text-align:right;white-space:nowrap">${money(x.amount)}<div class="small" style="color:${(+x.amount || 0) > (+x.paid || 0) ? 'var(--danger)' : 'var(--muted)'}">已收 ${money(x.paid)}</div></td></tr>`).join('')}</table></div>`
+      : '<div class="empty">沒有自費紀錄。</div>'}`;
+}
+function editFee(pid, fid){
+  const p = pById(pid), x = fid ? (p.fees || []).find(f => f.id === fid) : {date: today(), item: '', amount: '', paid: '', note: ''};
+  openModal({title: fid ? '編輯自費項目' : '新增自費項目',
+    body: `<div class="grid2"><label class="f"><span>日期</span><input type="date" name="date" value="${esc(x.date || '')}"></label>
+      <label class="f"><span>項目</span><input name="item" required value="${esc(x.item)}" placeholder="例如：#36 植體＋牙冠"></label></div>
+      <div class="grid2"><label class="f"><span>金額（NT$）</span><input type="number" inputmode="numeric" name="amount" value="${esc(x.amount)}"></label>
+      <label class="f"><span>已收（NT$）</span><input type="number" inputmode="numeric" name="paid" value="${esc(x.paid)}"></label></div>
+      <label class="f"><span>備註（分期、付款方式…）</span><input name="note" value="${esc(x.note || '')}"></label>`,
+    danger: fid ? {text: '刪除', fn: () => { if(!confirm('刪除這筆自費紀錄？')) return false; p.fees = p.fees.filter(f => f.id !== fid); }} : null,
+    onSave: fd => {
+      const v = {date: fd.date, item: fd.item, amount: +fd.amount || 0, paid: +fd.paid || 0, note: fd.note};
+      if(fid) Object.assign(x, v); else { p.fees = p.fees || []; p.fees.push(Object.assign({id: uid()}, v)); }
+    }});
+}
+
+/* ---------- 設定：AI 金鑰 ---------- */
+function aiSettingsHTML(){
+  const k = dev().apiKey;
+  return `<h2>AI 功能（口述整理、拍照讀取）</h2>
+    <div class="card"><div>狀態：${k ? `<span class="chip ok">已設定金鑰（…${esc(k.slice(-4))}）</span>` : '<span class="chip warn">還沒設定</span>'}</div>
+      <label class="f" style="margin-top:10px"><span>Claude API 金鑰（只存在這台裝置，不會跟著同步檔走；iPad、iPhone 要各貼一次）</span>
+        <input type="password" id="apikey" placeholder="sk-ant-…" autocomplete="off"></label>
+      <div class="row"><button class="btn primary" onclick="saveApiKey()">儲存金鑰</button><button class="btn" onclick="testAI(this)">測試連線</button>
+        ${k ? '<button class="btn ghost" onclick="clearApiKey()">移除金鑰</button>' : ''}</div>
+      <div class="small muted" style="margin-top:8px">使用模型：Claude Opus 5.5。送出的內容會傳到 Anthropic 處理，費用依用量從你的 Anthropic 帳戶扣款。</div></div>`;
+}
+function saveApiKey(){ const v = document.getElementById('apikey').value.trim(); if(!v) return alert('請先貼上金鑰'); setDev('apiKey', v); render(); }
+function clearApiKey(){ if(confirm('移除這台裝置上的 API 金鑰？')){ setDev('apiKey', ''); render(); } }
+async function testAI(btn){
+  btn.disabled = true; btn.textContent = '測試中…';
+  try{
+    const r = await aiJSON({system: '這是連線測試。', content: '請回傳 ok = true。', effort: 'low',
+      schema: {type: 'object', properties: {ok: {type: 'boolean'}}, required: ['ok'], additionalProperties: false}});
+    alert(r.ok ? '連線成功 ✅ AI 功能可以用了。' : '有回應，但結果怪怪的，請再試一次。');
+  }catch(e){ alert('⚠️ ' + e.message); }
+  btn.disabled = false; btn.textContent = '測試連線';
 }
 
 /* ===================== 路由 ===================== */

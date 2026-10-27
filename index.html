@@ -621,7 +621,7 @@ function editLog(id){
 
 /* ===================== 頁面：設定 ===================== */
 function renderSettings(){
-  const protoHTML = Object.entries(S.protocols).map(([k, pr]) => `<details class="pd"><summary>${esc(pr.cat)}｜${esc(pr.name)}</summary>
+  const protoHTML = Object.entries(S.protocols).map(([k, pr]) => `<details class="pd"><summary>${esc(pr.cat)}｜${esc(pr.name)} <span class="small muted">${plansUsing(k).length ? `（${plansUsing(k).length} 個進行中的療程使用）` : ''}</span></summary>
     <table class="proto"><tr><th>步驟</th><th>距上一步（天）</th><th>上顎多加（天）</th><th>重複（天）</th><th></th></tr>
     ${pr.steps.map((s, i) => `<tr><td><input value="${esc(s.label)}" onchange="setProto('${k}',${i},'label',this.value)"></td>
       <td><input type="number" value="${s.offset}" ${i === 0 ? 'disabled' : ''} onchange="setProto('${k}',${i},'offset',+this.value)"></td>
@@ -631,7 +631,7 @@ function renderSettings(){
     <div class="row" style="margin-top:8px"><button class="btn sm" onclick="addProtoStep('${k}')">＋ 加一步</button><span class="sp"></span>
       <button class="btn sm danger" onclick="delProto('${k}')">刪除這個療程範本</button></div></details>`).join('');
   return `<h2>療程範本（間隔天數）</h2>
-    <div class="hint">這裡的天數是我依常見 protocol 預設的參考值，請改成你自己的習慣。修改只會影響<b>之後新增</b>的療程；已經建立的病人療程不會被改動（個別步驟可以手動調整日期）。粗體橘色的步驟（印模、裝戴）是重要節點。</div>
+    <div class="hint">這裡的天數是我依常見 protocol 預設的參考值，請改成你自己的習慣。修改會<b>自動套用到所有使用這個範本、進行中的病人療程</b>：還沒做的步驟照新天數重新推算；已完成的步驟、已約日期、手動指定的日期和備註都會保留；已結案的療程不動。粗體橘色的步驟（印模、裝戴）是重要節點。</div>
     ${protoHTML}
     <div class="row"><button class="btn" onclick="newProto()">＋ 新增自訂療程範本</button><button class="btn ghost" onclick="resetProto()">恢復預設範本</button></div>
 
@@ -658,11 +658,56 @@ function renderSettings(){
     <div class="small muted" style="margin-top:24px">統計：病人 ${S.patients.length} 位・療程 ${S.plans.length} 個・紀錄 ${S.logs.length} 筆。<br>
       日期推算僅供排程參考，實際時機以臨床判斷為準。</div>`;
 }
-function setProto(k, i, f, v){ const s = S.protocols[k].steps[i]; if(v === 0 && f !== 'offset') delete s[f]; else s[f] = v; save(); }
-function addProtoStep(k){ S.protocols[k].steps.push({label:'新步驟', offset:7}); save(); render(); }
-function delProtoStep(k, i){ const st = S.protocols[k].steps; if(st.length <= 1) return alert('至少要有一步'); st.splice(i, 1); save(); render(); }
+function setProto(k, i, f, v){ const s = S.protocols[k].steps[i]; if(v === 0 && f !== 'offset') delete s[f]; else s[f] = v; syncProto(k); save(); }
+function addProtoStep(k){ S.protocols[k].steps.push({label:'新步驟', offset:7}); syncProto(k); save(); render(); }
+function delProtoStep(k, i){
+  const st = S.protocols[k].steps; if(st.length <= 1) return alert('至少要有一步');
+  // 還有病人在這一步、而且已經約了 → 先確認
+  const hit = plansUsing(k).filter(pl => { const nx = nextStep(pl); return nx && nx.label === st[i].label && nx.appt; });
+  if(hit.length && !confirm(`有 ${hit.length} 位病人正在「${st[i].label}」這一步而且已經約了：\n${hit.map(pl => pById(pl.patientId).name).join('、')}\n\n刪掉這一步，他們的約診日也會一起拿掉。確定刪除？`)) return;
+  st.splice(i, 1); syncProto(k); save(); render();
+}
+
+/* ---------- 範本改了 → 進行中的病人療程跟著改 ---------- */
+const plansUsing = k => S.plans.filter(pl => pl.proto === k && !pl.archived);
+const STEP_STATE = ['done', 'appt', 'apptTime', 'manual', 'skipped', 'note'];
+function syncPlanToProto(pl, pr){
+  const old = pl.steps, used = new Set(), out = [];
+  const tLabels = new Set(pr.steps.map(t => t.label));
+  const keepDone = upto => { for(let i = 0; i < upto; i++) if(!used.has(i) && old[i].done){ out.push(old[i]); used.add(i); } };
+  let ptr = 0;
+  pr.steps.forEach((t, j) => {
+    let m = -1;
+    for(let i = ptr; i < old.length; i++) if(!used.has(i) && old[i].label === t.label){ m = i; break; }
+    if(m < 0 && j < old.length && !used.has(j) && j >= ptr && !tLabels.has(old[j].label)) m = j; // 同位置、舊名已不在範本 → 視為改名
+    if(m >= 0){ keepDone(m); ptr = m + 1; }   // 範本刪掉、但已經做過的步驟：留在原位置當紀錄
+    const n = Object.assign({}, t);
+    if(m >= 0){ used.add(m); for(const k of STEP_STATE) if(old[m][k] !== undefined) n[k] = old[m][k]; }
+    out.push(n);
+  });
+  // 剩下的舊步驟：已完成的保留；重複產生的（SPT、年度追蹤）照新範本的間隔保留；其他（範本已刪掉、還沒做）拿掉
+  const last = pr.steps[pr.steps.length - 1];
+  old.forEach((s, i) => {
+    if(used.has(i)) return;
+    if(last && last.repeat && s.label === last.label) out.push(Object.assign({}, s, {offset: last.repeat, repeat: last.repeat}));
+    else if(s.done) out.push(s);
+  });
+  pl.steps = out; pl.protoName = pr.name;
+  applyRepeat(pl);
+}
+let toastT;
+function toast(msg){
+  let el = document.getElementById('toast');
+  if(!el){ el = document.createElement('div'); el.id = 'toast'; el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;z-index:20;max-width:90vw;text-align:center'; document.body.appendChild(el); }
+  el.textContent = msg; el.style.display = ''; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2500);
+}
+function syncProto(k){
+  const pr = S.protocols[k], pls = plansUsing(k); if(!pr || !pls.length) return;
+  pls.forEach(pl => syncPlanToProto(pl, pr));
+  toast(`已同步更新 ${pls.length} 個病人療程`);
+}
 function delProto(k){ if(confirm(`刪除範本「${S.protocols[k].name}」？（已建立的病人療程不受影響）`)){ delete S.protocols[k]; save(); render(); } }
-function resetProto(){ if(confirm('恢復成預設範本？你改過的天數和自訂範本會被覆蓋。（病人資料不受影響）')){ S.protocols = defaultProtocols(); save(); render(); } }
+function resetProto(){ if(confirm('恢復成預設範本？你改過的天數和自訂範本會被覆蓋，進行中的病人療程也會跟著改回預設天數（已完成的紀錄不受影響）。')){ S.protocols = defaultProtocols(); Object.keys(S.protocols).forEach(syncProto); save(); render(); } }
 function newProto(){
   openModal({title:'新增療程範本', body:`<label class="f"><span>名稱</span><input name="name" required></label>
     <label class="f"><span>分類</span><select name="cat">${['植牙','牙周','固定假牙','活動假牙','其他'].map(c => opt(c, c)).join('')}</select></label>

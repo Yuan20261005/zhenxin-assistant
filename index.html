@@ -134,11 +134,13 @@ details.pd summary{cursor:pointer;font-weight:600}
 <script>
 /* ===================== 基本設定 ===================== */
 const DB_KEY = 'zhenxin-assistant-v1';
+const APP_VERSION = '2026-10-28 e';
 const CLINICS = { ZS:'永春臻心', BZ:'暖暖微風', YT:'汐止雲天' };
 const WD = ['日','一','二','三','四','五','六'];
 
 function P(label, offset, opt){ return Object.assign({label, offset}, opt||{}); }
-function defaultProtocols(){
+function defaultProtocols(){ const d = rawDefaultProtocols(); anchorPastSuture(d); return d; }
+function rawDefaultProtocols(){
   const tail = () => [P('試戴',14), P('裝戴假牙',7,{key:true}), P('裝戴後回診',30), P('年度追蹤',365,{repeat:365})];
   return {
     implant_std:{name:'一般植牙（延遲植入）',cat:'植牙',steps:[
@@ -250,15 +252,32 @@ function rel(s){
 
 /* ===================== 療程計算 ===================== */
 // 每一步「最早可以做的日期」= 上一步實際完成日（沒完成就用約診日，再沒有就用推算日）+ 間隔天數
+// 每一步「最早可做日」= 起算的那一步實際日期（完成日 > 約診日 > 推算日）+ 間隔天數
+// 起算的那一步預設是上一步；s.from 可以指定更早的某一步（例如 ISQ 從「植體植入」起算，拆線早晚不影響）
 function computeSteps(plan){
-  let base = plan.start;
+  let base = plan.start; const eff = [];
   return plan.steps.map((s, i) => {
-    let earliest = i === 0 ? plan.start : addDays(base, (s.offset||0) + (plan.jaw === '上顎' ? (s.upperExtra||0) : 0));
+    let anchor = base;
+    if(i > 0 && s.from) for(let j = i - 1; j >= 0; j--) if(plan.steps[j].label === s.from && eff[j]){ anchor = eff[j]; break; }
+    let earliest = i === 0 ? plan.start : addDays(anchor, (s.offset||0) + (plan.jaw === '上顎' ? (s.upperExtra||0) : 0));
     if(s.manual) earliest = s.manual;
     const r = Object.assign({}, s, { idx:i, earliest });
-    if(!s.skipped) base = s.done || s.appt || earliest;
+    eff[i] = s.skipped ? null : (s.done || s.appt || earliest);
+    if(!s.skipped) base = eff[i];
     return r;
   });
+}
+// 「拆線」後面那一步改成從手術那一步起算，天數加總（準時拆線時日期不變；拆線早晚不再影響後面）
+function anchorPastSuture(protocols){
+  const changed = [];
+  for(const [k, pr] of Object.entries(protocols)){
+    pr.steps.forEach((st, i) => {
+      if(i < 2 || st.from || !pr.steps[i - 1].label.includes('拆線')) return;
+      st.from = pr.steps[i - 2].label; st.offset = (st.offset || 0) + (pr.steps[i - 1].offset || 0);
+      if(!changed.includes(k)) changed.push(k);
+    });
+  }
+  return changed;
 }
 function nextStep(plan){ return computeSteps(plan).find(s => !s.done && !s.skipped) || null; }
 function stepStatus(s){
@@ -482,7 +501,7 @@ function editPlan(id){
       <label class="f"><span>第一步的日期</span><input type="date" name="start" value="${esc(pl.start)}"></label>
       <label class="f"><span>備註</span><textarea name="note">${esc(pl.note)}</textarea></label>
       <label class="ck"><input type="checkbox" name="archived" ${pl.archived ? 'checked' : ''}> 結案（不再出現在提醒和空檔遞補）</label>`,
-    danger: {text:'刪除療程', fn: () => { if(!confirm('確定刪除這個療程？無法復原。')) return false; S.plans = S.plans.filter(x => x.id !== id); }},
+    danger: {text:'刪除整個療程', fn: () => { if(!confirm('確定刪除這整個療程（所有步驟）？無法復原。')) return false; S.plans = S.plans.filter(x => x.id !== id); }},
     onSave: fd => { Object.assign(pl, fd); }
   });
 }
@@ -491,7 +510,7 @@ function editStep(planId, idx){
   openModal({
     title: `${esc(s.label)}`,
     body: `<div class="muted" style="margin-bottom:10px">${esc(p.name)}・${esc(pl.protoName)}${pl.site ? '・' + esc(pl.site) : ''}<br>
-        推算最早可做：<b>${fmt(s.earliest)}</b>（${rel(s.earliest)}）${idx > 0 ? `・距上一步 ${s.offset} 天${pl.jaw === '上顎' && s.upperExtra ? `＋上顎 ${s.upperExtra} 天` : ''}` : ''}</div>
+        推算最早可做：<b>${fmt(s.earliest)}</b>（${rel(s.earliest)}）${idx > 0 ? `・${s.from ? `從「${esc(s.from)}」起算` : '距上一步'} ${s.offset} 天${pl.jaw === '上顎' && s.upperExtra ? `＋上顎 ${s.upperExtra} 天` : ''}` : ''}</div>
       <label class="f"><span>已約日期</span><input type="date" name="appt" value="${esc(raw.appt||'')}"></label>
       <label class="f"><span>完成日期</span><div class="row"><input type="date" name="done" value="${esc(raw.done||'')}" style="flex:1;width:auto">
         <button type="button" class="btn sm" onclick="this.form.done.value='${today()}'">今天完成</button></div></label>
@@ -499,6 +518,12 @@ function editStep(planId, idx){
       <label class="ck"><input type="checkbox" name="skipped" ${raw.skipped ? 'checked' : ''}> 略過這一步（例如不需要牙周手術）</label>
       <label class="f"><span>這一步的備註</span><input name="note" value="${esc(raw.note||'')}"></label>
       <div class="row"><button type="button" class="btn sm" onclick="document.getElementById('modal').close();addLog('${p.id}','${pl.id}|${idx}')">📝 改成寫一筆治療紀錄</button></div>`,
+    danger: {text: '刪除這一步', fn: () => {
+      if(pl.steps.length <= 1) { alert('療程至少要有一步。要整個刪掉，請按療程右上角的「編輯」→「刪除整個療程」。'); return false; }
+      if(!confirm(`只從「${p.name}」這個療程刪掉「${raw.label}」這一步？\n（其他病人不受影響；之後更新範本也不會再加回來）`)) return false;
+      pl.steps.splice(idx, 1);
+      pl.removed = [...new Set([...(pl.removed || []), raw.label])];
+    }},
     onSave: fd => {
       if((fd.appt || '') !== (raw.appt || '')) delete raw.apptTime;
       for(const k of ['appt','done','manual','note']) { if(fd[k]) raw[k] = fd[k]; else delete raw[k]; }
@@ -621,19 +646,23 @@ function editLog(id){
 
 /* ===================== 頁面：設定 ===================== */
 function renderSettings(){
-  const protoHTML = Object.entries(S.protocols).map(([k, pr]) => `<details class="pd"><summary>${esc(pr.cat)}｜${esc(pr.name)} <span class="small muted">${plansUsing(k).length ? `（${plansUsing(k).length} 個進行中的療程使用）` : ''}</span></summary>
-    <table class="proto"><tr><th>步驟</th><th>距上一步（天）</th><th>上顎多加（天）</th><th>重複（天）</th><th></th></tr>
+  const protoHTML = Object.entries(S.protocols).map(([k, pr]) => `<details class="pd" ${openProtos.has(k) ? 'open' : ''} ontoggle="this.open ? openProtos.add('${k}') : openProtos.delete('${k}')"><summary>${esc(pr.cat)}｜${esc(pr.name)} <span class="small muted">${plansUsing(k).length ? `（${plansUsing(k).length} 個進行中的療程使用）` : ''}</span></summary>
+    <div style="overflow-x:auto"><table class="proto"><tr><th>步驟</th><th>從哪一步起算</th><th>間隔（天）</th><th>上顎多加（天）</th><th>重複（天）</th><th></th></tr>
     ${pr.steps.map((s, i) => `<tr><td><input value="${esc(s.label)}" onchange="setProto('${k}',${i},'label',this.value)"></td>
+      <td>${i === 0 ? '<span class="small muted">第一步</span>' : `<select onchange="setProto('${k}',${i},'from',this.value)" style="min-width:8em">${opt('', '上一步', !s.from)}${
+        pr.steps.slice(0, i - 1).map(t => opt(t.label, t.label, s.from === t.label)).join('')}</select>`}</td>
       <td><input type="number" value="${s.offset}" ${i === 0 ? 'disabled' : ''} onchange="setProto('${k}',${i},'offset',+this.value)"></td>
       <td><input type="number" value="${s.upperExtra||0}" onchange="setProto('${k}',${i},'upperExtra',+this.value)"></td>
       <td><input type="number" value="${s.repeat||0}" title="最後一步填 >0：完成後自動排下一次（例如 SPT 90 天）" onchange="setProto('${k}',${i},'repeat',+this.value)"></td>
-      <td><button class="btn sm ghost" onclick="delProtoStep('${k}',${i})">✕</button></td></tr>`).join('')}</table>
+      <td><button class="btn sm ghost" onclick="delProtoStep('${k}',${i})">✕</button></td></tr>`).join('')}</table></div>
     <div class="row" style="margin-top:8px"><button class="btn sm" onclick="addProtoStep('${k}')">＋ 加一步</button><span class="sp"></span>
+      ${plansUsing(k).length ? `<button class="btn sm" onclick="resyncProto('${k}')">↻ 重新套用到 ${plansUsing(k).length} 個現有療程</button>` : ''}
       <button class="btn sm danger" onclick="delProto('${k}')">刪除這個療程範本</button></div></details>`).join('');
   return `<h2>療程範本（間隔天數）</h2>
     <div class="hint">這裡的天數是我依常見 protocol 預設的參考值，請改成你自己的習慣。修改會<b>自動套用到所有使用這個範本、進行中的病人療程</b>：還沒做的步驟照新天數重新推算；已完成的步驟、已約日期、手動指定的日期和備註都會保留；已結案的療程不動。粗體橘色的步驟（印模、裝戴）是重要節點。</div>
     ${protoHTML}
-    <div class="row"><button class="btn" onclick="newProto()">＋ 新增自訂療程範本</button><button class="btn ghost" onclick="resetProto()">恢復預設範本</button></div>
+    <div class="row"><button class="btn" onclick="newProto()">＋ 新增自訂療程範本</button><button class="btn ghost" onclick="resetProto()">恢復預設範本</button>
+      <button class="btn" onclick="resyncAll()">↻ 全部範本重新套用到現有療程</button></div>
 
     <h2>iPad ↔ iPhone 同步</h2>
     ${syncBar()}
@@ -655,23 +684,34 @@ function renderSettings(){
     <div class="card"><div class="small">載入幾位虛構病人，先看看 App 的運作方式。示範資料可以一鍵清除，不會動到你的真實資料。</div>
       <div class="row" style="margin-top:8px"><button class="btn" onclick="loadDemo()">載入示範資料</button><button class="btn" onclick="clearDemo()">清除示範資料</button></div></div>
 
-    <div class="small muted" style="margin-top:24px">統計：病人 ${S.patients.length} 位・療程 ${S.plans.length} 個・紀錄 ${S.logs.length} 筆。<br>
+    <div class="small muted" style="margin-top:24px">App 版本：${APP_VERSION}<br>統計：病人 ${S.patients.length} 位・療程 ${S.plans.length} 個・紀錄 ${S.logs.length} 筆。<br>
       日期推算僅供排程參考，實際時機以臨床判斷為準。</div>`;
 }
-function setProto(k, i, f, v){ const s = S.protocols[k].steps[i]; if(v === 0 && f !== 'offset') delete s[f]; else s[f] = v; syncProto(k); save(); }
+const openProtos = new Set();
+function setProto(k, i, f, v){
+  const steps = S.protocols[k].steps, s = steps[i], old = s[f];
+  if((v === 0 || v === '') && f !== 'offset') delete s[f]; else s[f] = v;
+  if(f === 'label') steps.forEach(t => { if(t.from === old) t.from = v; }); // 改名時，指向它的「起算」一起改
+  syncProto(k); save();
+  if(f === 'label') render();
+}
 function addProtoStep(k){ S.protocols[k].steps.push({label:'新步驟', offset:7}); syncProto(k); save(); render(); }
 function delProtoStep(k, i){
   const st = S.protocols[k].steps; if(st.length <= 1) return alert('至少要有一步');
   // 還有病人在這一步、而且已經約了 → 先確認
   const hit = plansUsing(k).filter(pl => { const nx = nextStep(pl); return nx && nx.label === st[i].label && nx.appt; });
   if(hit.length && !confirm(`有 ${hit.length} 位病人正在「${st[i].label}」這一步而且已經約了：\n${hit.map(pl => pById(pl.patientId).name).join('、')}\n\n刪掉這一步，他們的約診日也會一起拿掉。確定刪除？`)) return;
-  st.splice(i, 1); syncProto(k); save(); render();
+  const gone = st[i].label; st.splice(i, 1);
+  st.forEach(t => { if(t.from === gone) delete t.from; }); // 指向被刪步驟的「起算」改回上一步
+  syncProto(k); save(); render();
 }
 
 /* ---------- 範本改了 → 進行中的病人療程跟著改 ---------- */
 const plansUsing = k => S.plans.filter(pl => pl.proto === k && !pl.archived);
 const STEP_STATE = ['done', 'appt', 'apptTime', 'manual', 'skipped', 'note'];
-function syncPlanToProto(pl, pr){
+function syncPlanToProto(pl, prFull){
+  const removed = new Set(pl.removed || []);
+  const pr = Object.assign({}, prFull, {steps: prFull.steps.filter(t => !removed.has(t.label))}); // 這個病人自己刪掉的步驟不加回來
   const old = pl.steps, used = new Set(), out = [];
   const tLabels = new Set(pr.steps.map(t => t.label));
   const keepDone = upto => { for(let i = 0; i < upto; i++) if(!used.has(i) && old[i].done){ out.push(old[i]); used.add(i); } };
@@ -692,7 +732,7 @@ function syncPlanToProto(pl, pr){
     if(last && last.repeat && s.label === last.label) out.push(Object.assign({}, s, {offset: last.repeat, repeat: last.repeat}));
     else if(s.done) out.push(s);
   });
-  pl.steps = out; pl.protoName = pr.name;
+  pl.steps = out; pl.protoName = prFull.name;
   applyRepeat(pl);
 }
 let toastT;
@@ -700,6 +740,17 @@ function toast(msg){
   let el = document.getElementById('toast');
   if(!el){ el = document.createElement('div'); el.id = 'toast'; el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;z-index:20;max-width:90vw;text-align:center'; document.body.appendChild(el); }
   el.textContent = msg; el.style.display = ''; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = 'none', 2500);
+}
+function resyncProto(k){
+  if(!confirm(`把「${S.protocols[k].name}」目前的天數和步驟，套用到 ${plansUsing(k).length} 個進行中的療程？\n（已完成、已約、手動指定的日期都會保留）`)) return;
+  syncProto(k); save(); render();
+}
+function resyncAll(){
+  const n = S.plans.filter(pl => !pl.archived && S.protocols[pl.proto]).length;
+  if(!n) return alert('目前沒有使用範本的進行中療程。');
+  if(!confirm(`把所有範本套用到 ${n} 個進行中的療程？\n（已完成、已約、手動指定的日期都會保留；已結案的不動）`)) return;
+  Object.keys(S.protocols).forEach(k => S.plans.filter(pl => pl.proto === k && !pl.archived).forEach(pl => syncPlanToProto(pl, S.protocols[k])));
+  save(); render(); toast(`已重新套用 ${n} 個療程`);
 }
 function syncProto(k){
   const pr = S.protocols[k], pls = plansUsing(k); if(!pr || !pls.length) return;
@@ -1061,6 +1112,12 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { locat
 window.addEventListener('hashchange', render);
 document.addEventListener('visibilitychange', () => { if(!document.hidden && !document.getElementById('modal').open) render(); }); // 隔天打開時刷新日期
 load();
+if(!S.meta.anchorV){
+  const changed = anchorPastSuture(S.protocols);
+  changed.forEach(k => S.plans.filter(pl => pl.proto === k && !pl.archived).forEach(pl => syncPlanToProto(pl, S.protocols[k])));
+  S.meta.anchorV = 1; save();
+  if(changed.length && S.plans.length) setTimeout(() => toast('已更新：拆線後的步驟改成從手術日起算'), 600);
+}
 if(navigator.storage && navigator.storage.persist) navigator.storage.persist();
 if('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js'); // 讓沒網路時也能打開
 render();
